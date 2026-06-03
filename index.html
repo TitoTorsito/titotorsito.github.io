@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Bitcoin Empirical Quantile Model Rainbow</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root{--bg:#0d1117;--panel:#151b23;--panel2:#0b1017;--text:#e6edf3;--muted:#9fb0c1;--line:#303845;--blue:#4ea1ff;--green:#3ee07f;--red:#ff6b6b}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+header{padding:10px 16px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:23px}.sub{margin:5px 0 0;color:#b6c6d8;font-size:13px;max-width:1500px}
+.wrap{display:grid;grid-template-columns:375px 1fr;gap:12px;padding:12px;height:calc(100vh - 72px);box-sizing:border-box}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto}
+.chartbox{background:#fff;border-radius:12px;border:1px solid #d6d6d6;overflow:hidden}
+button{width:100%;border:0;border-radius:8px;padding:13px 10px;font-weight:850;cursor:pointer;margin-bottom:10px}
+.primary{background:var(--blue);color:#00162c}.secondary{background:#222b36;color:var(--text);border:1px solid var(--line)}
+.status{font-size:12.5px;line-height:1.35;margin:8px 0 12px;color:var(--green);white-space:pre-wrap}.status.err{color:var(--red)}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}.label{font-size:12px;color:var(--muted);margin-bottom:7px}.val{font-size:20px;font-weight:850}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px;font-size:10.55px;line-height:1.34;color:#eaf3ff;white-space:pre-wrap}
+.bands{font-size:12px;line-height:1.6;margin-top:12px}.sw{display:inline-block;width:17px;height:10px;margin-right:7px;border-radius:2px}
+.note{font-size:12px;line-height:1.4;color:#adc0d3;margin-top:12px}
+#chart{width:100%;height:100%}
+</style>
+</head>
+<body>
+<header>
+<h1>Bitcoin Empirical Quantile Model Rainbow</h1>
+<p class="sub">Binance closed daily candles only.</p>
+</header>
+<div class="wrap">
+<aside class="side">
+<button id="fetchBtn" class="primary">Fetch Binance BTCUSD Data</button>
+<div id="status" class="status">Ready. Click fetch.</div>
+<div class="cards">
+<div class="card"><div class="label">BTC Price</div><div id="price" class="val">—</div></div>
+<div class="card" title="Current BTC percentile/risk inside the EQM rainbow. Lower is cheaper; higher is more expensive."><div class="label">EQM Risk</div><div id="risk" class="val">—</div></div>
+<div class="card" title="The model median / fair-value midpoint for Bitcoin today."><div class="label">EQM 50%</div><div id="mid" class="val">—</div></div>
+<div class="card"><div class="label">Current Band</div><div id="band" class="val">—</div></div>
+</div>
+
+<div class="code" style="margin-bottom:12px">What the headline numbers mean:
+
+EQM Risk:
+  Where today's Bitcoin price sits inside the rainbow.
+
+  0%   = extreme cheap / strongest buy zone
+  25%  = cheap zone
+  50%  = fair-value midpoint
+  75%  = hot / expensive
+  100% = extreme bubble zone
+
+  Example:
+    EQM Risk = 30% means price is in the lower 30%
+    of the model's valuation range. That is usually
+    interpreted as relatively cheap.
+
+EQM 50%:
+  The model's current fair-value midpoint for Bitcoin.
+
+  If BTC price is below EQM 50%, Bitcoin is below the
+  model's median valuation level.
+  If BTC price is above EQM 50%, Bitcoin is above the
+  model's median valuation level.
+
+DCA interpretation:
+  Lower EQM Risk = buy more aggressively.
+  Higher EQM Risk = buy less, pause, or de-risk.
+
+  Example formula:
+    DCA = Max DCA × (1 - 2 × Risk)
+
+  Risk is decimal:
+    30% risk = 0.30
+    DCA = Max DCA × (1 - 2×0.30)
+    DCA = 40% of Max DCA</div>
+
+<div class="code">Model formula:
+
+Price data:
+  closed daily candles = locked once closed
+  current forming Binance UTC day = live ticker price until it closes
+
+Closed-candle rule:
+  include candle if candle UTC date < Binance server UTC date
+
+  x[t] = ln(days since genesis)
+  y[t] = ln(close)
+
+  age_k[t] = years since halving k
+
+  bull[t] = Σ exp(-0.5 · ((age_k[t] - μ_bull) / σ_bull)²)
+  bear[t] = Σ exp(-0.5 · ((age_k[t] - μ_bear) / σ_bear)²)
+
+  mid[t] = A + B·x[t] + β_bull·bull[t] - β_bear·bear[t]
+
+  width[t] = max(
+      W_min,
+      W_base · (1 - C_bull·bull[t]^γ + W_bear·bear[t])
+  )
+
+  upperTail[t] = EMA(max(upperTail[t-1]·d, y[t] - upperBase[t] + p))
+  lowerTail[t] = EMA(max(lowerTail[t-1]·d, lowerBase[t] - y[t] + p))
+
+  bandτ[t] = exp(
+      mid[t] + width[t]·zτ + tailAdjustmentτ[t]
+  )</div>
+<div id="bandList" class="bands"></div>
+<div id="checks" class="note"></div>
+</aside>
+<main class="chartbox"><div id="chart"></div></main>
+</div>
+
+<script>
+const TAUS=[0.01,0.10,0.20,0.30,0.40,0.50,0.60,0.70,0.80,0.90,0.99];
+const LABELS=["1-10% · Fire sale","10-20% · Accumulate","20-30% · Cheap","30-40% · Value","40-50% · Below mid","50-60% · Above mid","60-70% · Warm","70-80% · Hot","80-90% · FOMO","90-99% · Bubble"];
+const COLORS=["#173f74","#2c78a0","#2fa99a","#66bd63","#a6d96a","#f6e64f","#fdae3b","#f46d43","#d84e4e","#c91722"];
+const GENESIS=new Date("2009-01-03T00:00:00Z");
+const DISPLAY_START=new Date("2018-01-01T00:00:00Z");
+const REF_DATE="2026-05-29";
+const REF_ANCHORS=[52200,59900,66400,77700,91300,100800,112300,121700,130700,137900,153700];
+const REF_LOG=REF_ANCHORS.map(Math.log);
+const Z=REF_LOG.map(v=>v-REF_LOG[5]);
+const HALVINGS=[
+  new Date("2016-07-09T00:00:00Z"),
+  new Date("2020-05-11T00:00:00Z"),
+  new Date("2024-04-20T00:00:00Z"),
+  new Date("2028-03-28T00:00:00Z")
+];
+
+function fmtDate(d){return d.toISOString().slice(0,10)}
+function fmtMoney(v){if(!isFinite(v))return"—";if(v>=1e6)return"$"+(v/1e6).toFixed(2)+"M";if(v>=1e4)return"$"+(v/1e3).toFixed(v>=1e5?0:1)+"K";if(v>=1e3)return"$"+Math.round(v).toLocaleString();return"$"+v.toFixed(2)}
+function daysSinceGenesis(d){return Math.max(2,(d-GENESIS)/86400000)}
+function dedupeDaily(rows){const m=new Map();for(const r of rows){if(!r||!isFinite(r.close)||r.close<=0)continue;const k=fmtDate(r.date);m.set(k,{date:new Date(k+"T00:00:00Z"),close:+r.close,closeTime:r.closeTime||null})}return Array.from(m.values()).sort((a,b)=>a.date-b.date)}
+function hexToRgba(hex,a){const h=hex.replace("#","");return`rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`}
+function bandName(r){return r<10?"Fire sale":r<20?"Accumulate":r<30?"Cheap":r<40?"Value":r<50?"Below mid":r<60?"Above mid":r<70?"Warm":r<80?"Hot":r<90?"FOMO":"Bubble"}
+function pinball(e,tau){return e>=0?tau*e:(tau-1)*e}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+
+
+
+async function fetchBinanceServerTime(base){
+  const r=await fetch(`${base}/api/v3/time`);
+  if(!r.ok)throw new Error(base+" server time HTTP "+r.status);
+  const j=await r.json();
+  if(!j.serverTime)throw new Error("Invalid Binance server time");
+  return +j.serverTime;
+}
+
+async function fetchBinanceCurrentPrice(){
+  const bases=["https://api.binance.com","https://api-gcp.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com","https://api4.binance.com"];
+  let lastErr=null;
+  for(const base of bases){
+    try{
+      const serverNow=await fetchBinanceServerTime(base);
+      const serverDateUTC=new Date(serverNow).toISOString().slice(0,10);
+      const r=await fetch(`${base}/api/v3/ticker/price?symbol=BTCUSDT`);
+      if(!r.ok)throw new Error(base+" HTTP "+r.status);
+      const j=await r.json();
+      const price=+j.price;
+      if(!isFinite(price)||price<=0)throw new Error("Invalid ticker price");
+      return {price, source:base+" /api/v3/ticker/price BTCUSDT", serverDateUTC, serverNow};
+    }catch(e){lastErr=e;console.warn(e)}
+  }
+  throw lastErr||new Error("Current price fetch failed");
+}
+
+
+async function fetchBinanceOnly(){
+  const bases=["https://api.binance.com","https://api-gcp.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com","https://api4.binance.com"];
+  let lastErr=null;
+  for(const base of bases){
+    try{
+      const serverNow=await fetchBinanceServerTime(base);
+      const serverTodayUTC=new Date(serverNow).toISOString().slice(0,10);
+
+      let all=[], start=Date.UTC(2017,7,17);
+      while(start<serverNow){
+        const url=`${base}/api/v3/klines?symbol=BTCUSDT&interval=1d&startTime=${start}&limit=1000`;
+        const r=await fetch(url);
+        if(!r.ok)throw new Error(base+" HTTP "+r.status);
+        const arr=await r.json();
+        if(!Array.isArray(arr)||!arr.length)break;
+
+        for(const k of arr){
+          const openTime=+k[0], close=+k[4], closeTime=+k[6];
+          const candleDate=new Date(openTime).toISOString().slice(0,10);
+
+          // Include every Binance UTC daily candle whose date is BEFORE
+          // Binance server's current UTC date. Exclude only today's
+          // still-forming UTC candle.
+          if(candleDate < serverTodayUTC && close>0){
+            all.push({date:new Date(openTime),close,closeTime});
+          }
+        }
+
+        const next=arr[arr.length-1][0]+86400000;
+        if(next<=start)break;
+        start=next;
+        if(arr.length<1000)break;
+      }
+
+      const rows=dedupeDaily(all);
+      if(rows.length<1500)throw new Error(base+" returned too little closed daily history");
+      return{
+        rows,
+        source:base+" /api/v3/klines BTCUSDT 1d CLOSED candles",
+        serverTodayUTC,
+        serverNow
+      };
+    }catch(e){lastErr=e;console.warn(e)}
+  }
+  throw lastErr||new Error("Binance fetch failed");
+}
+
+
+function closestIndex(rows,dateStr){
+  const d=new Date(dateStr+"T00:00:00Z");let idx=0,best=Infinity;
+  for(let i=0;i<rows.length;i++){const dist=Math.abs(rows[i].date-d);if(dist<best){best=dist;idx=i}}
+  return idx;
+}
+function currentRisk(price,b){
+  if(price<=b[0])return 1;
+  if(price>=b[10])return 99;
+  for(let i=1;i<b.length;i++){
+    if(price<=b[i])return TAUS[i-1]*100+(TAUS[i]-TAUS[i-1])*100*(price-b[i-1])/(b[i]-b[i-1]);
+  }
+  return 99;
+}
+function gaussian(ageYears,muYears,sigmaYears){
+  return Math.exp(-0.5*Math.pow((ageYears-muYears)/sigmaYears,2));
+}
+function cycleEffects(d,p){
+  // Continuous, overlapping pulses from known objective halving dates.
+  // Negative ages are allowed, so the next cycle's effect fades in smoothly.
+  // This avoids the raw phase reset that caused v26's vertical band jumps.
+  let bull=0, bear=0;
+  for(const h of HALVINGS){
+    const ageYears=(d-h)/(365.25*86400000);
+    bull += gaussian(ageYears,p.muBullYears,p.sigBullYears);
+    bear += gaussian(ageYears,p.muBearYears,p.sigBearYears);
+  }
+  return {bull,bear};
+}
+
+function buildCandidate(rows,p){
+  const n=rows.length;
+  const ref=closestIndex(rows,REF_DATE);
+  const refX=Math.log(daysSinceGenesis(rows[ref].date));
+  const refEff=cycleEffects(rows[ref].date,p);
+  const refBull=refEff.bull;
+  const refBear=refEff.bear;
+
+  const A=REF_LOG[5] - p.B*refX - p.bullShift*refBull + p.bearShift*refBear;
+
+  const bands=TAUS.map(()=>new Array(n));
+  let outside=0,total=0,curve=0,loss=0,outDist=0;
+  let upperTail=0, lowerTail=0;
+  let upperPressure=0, lowerPressure=0;
+
+  for(let i=0;i<n;i++){
+    const d=rows[i].date, y=Math.log(rows[i].close), x=Math.log(daysSinceGenesis(d));
+    const eff=cycleEffects(d,p);
+    const bull=eff.bull;
+    const bear=eff.bear;
+    const mid=A+p.B*x+p.bullShift*bull-p.bearShift*bear;
+
+    const bullPow=Math.pow(bull,p.bullGamma);
+    const widthRaw=p.baseWidth*(1-p.bullCompress*bullPow+p.bearWidth*bear);
+    const width=Math.max(widthRaw,p.minWidth);
+
+    const baseTop=mid+width*Z[10]*(1-p.upCompress*bullPow);
+    const baseBot=mid+width*Z[0];
+
+    const upNeed=Math.max(0, y-baseTop+p.tailPad);
+    const dnNeed=Math.max(0, baseBot-y+p.tailPad);
+
+    upperPressure=Math.max(upperPressure*p.pressureDecay, upNeed);
+    lowerPressure=Math.max(lowerPressure*p.pressureDecay, dnNeed);
+
+    upperTail=(1-p.tailAlpha)*upperTail+p.tailAlpha*upperPressure;
+    lowerTail=(1-p.tailAlpha)*lowerTail+p.tailAlpha*lowerPressure;
+
+    const smoothUpper=upperTail*p.tailScale;
+    const smoothLower=lowerTail*p.tailScale;
+
+    for(let qi=0;qi<TAUS.length;qi++){
+      const z=Z[qi];
+      let zEff=z;
+      if(z>0) zEff = z*(1-p.upCompress*bullPow);
+      let adj=0;
+      if(z>=0){
+        const frac=Math.pow(z/Z[10],p.tailPower);
+        adj += smoothUpper*frac;
+      } else {
+        const frac=Math.pow(Math.abs(z/Z[0]),p.tailPower);
+        adj -= smoothLower*frac;
+      }
+      bands[qi][i]=Math.exp(mid+width*zEff+adj);
+      loss+=pinball(y-Math.log(bands[qi][i]),TAUS[qi]);
+    }
+
+    for(let qi=1;qi<TAUS.length;qi++) {
+      if(bands[qi][i]<=bands[qi-1][i]) bands[qi][i]=bands[qi-1][i]*1.0025;
+    }
+
+    if(d>=DISPLAY_START){
+      total++;
+      if(rows[i].close<bands[0][i]){outside++;outDist+=Math.pow(Math.log(bands[0][i])-y,2);}
+      if(rows[i].close>bands[10][i]){outside++;outDist+=Math.pow(y-Math.log(bands[10][i]),2);}
+    }
+
+    if(i>=2){
+      for(const qi of [0,5,10]){
+        const a=Math.log(bands[qi][i-2]), b=Math.log(bands[qi][i-1]), c=Math.log(bands[qi][i]);
+        curve += Math.abs(c-2*b+a);
+      }
+    }
+  }
+
+  const score=outside*p.outWeight+outDist*1000+curve*p.curveWeight+(loss/n)*p.lossWeight;
+  return {rows,bands,params:p,meta:{score,outside,total,curve,loss:loss/n,outDist}};
+}
+
+async function optimizeEQM(rows,onProgress){
+  const candidates=[];
+  for(const B of [4.15,4.35,4.55])
+  for(const bullShift of [0.12,0.20])
+  for(const bearShift of [0.02,0.08])
+  for(const baseWidth of [1.00,1.08])
+  for(const bullCompress of [0.12,0.20])
+  for(const upCompress of [0.08,0.16])
+  for(const pressureDecay of [0.996,0.998])
+  for(const tailAlpha of [0.035,0.055])
+  for(const tailPower of [0.55]) 
+  for(const bullGamma of [1.0]) {
+    candidates.push({
+      B,bullShift,bearShift,baseWidth,bullCompress,upCompress,bullGamma,
+      bearWidth:0.10,
+      minWidth:0.60,
+      pressureDecay,tailAlpha,tailPower,
+      tailScale:1.18,
+      tailPad:0.016,
+      muBullYears:1.20,sigBullYears:0.72,
+      muBearYears:2.25,sigBearYears:0.78,
+      outWeight:100,curveWeight:1250,lossWeight:1
+    });
+  }
+
+  let best=null,bestMeta=null,tested=0;
+  for(const p of candidates){
+    const m=buildCandidate(rows,p);
+    tested++;
+    if(!best || m.meta.score<bestMeta.score){best=m;bestMeta=m.meta}
+
+    // Yield every few candidates so Chrome does not mark the tab unresponsive.
+    if(tested % 8 === 0){
+      if(onProgress) onProgress(tested,candidates.length);
+      await new Promise(resolve => setTimeout(resolve,0));
+    }
+  }
+  best.tested=tested;
+  return best;
+}
+
+function render(model,source,livePriceObj=null){
+  const {rows,bands}=model;
+  const idx=rows.map((r,i)=>r.date>=DISPLAY_START?i:-1).filter(i=>i>=0);
+  const dates=idx.map(i=>fmtDate(rows[i].date));
+  const prices=idx.map(i=>rows[i].close);
+
+  // Live-current-price mode:
+  // Historical points remain closed daily closes.
+  // The final live point uses current Binance ticker price and reuses the latest
+  // closed daily EQM band levels, so the live risk can update intraday without
+  // repainting previous daily candles or recalculating historical bands.
+  const last=rows.length-1;
+  const latestClosedDate=fmtDate(rows[last].date);
+  const liveDate=(livePriceObj && livePriceObj.serverDateUTC) ? livePriceObj.serverDateUTC : fmtDate(new Date());
+  const hasLive=livePriceObj && isFinite(livePriceObj.price) && livePriceObj.price>0 && liveDate!==latestClosedDate;
+  const plotDates=hasLive ? dates.concat([liveDate]) : dates;
+  const plotPrices=hasLive ? prices.concat([livePriceObj.price]) : prices;
+
+  const traces=[];
+  for(let bi=0;bi<COLORS.length;bi++){
+    const lo=idx.map(i=>bands[bi][i]);
+    const hi=idx.map(i=>bands[bi+1][i]);
+    if(hasLive){
+      lo.push(bands[bi][last]);
+      hi.push(bands[bi+1][last]);
+    }
+    traces.push({x:plotDates.concat([...plotDates].reverse()),y:hi.concat([...lo].reverse()),fill:"toself",fillcolor:hexToRgba(COLORS[bi],0.74),line:{width:0},name:LABELS[bi],hoverinfo:"skip",showlegend:true});
+  }
+  traces.push({x:plotDates,y:plotPrices,mode:"lines",line:{color:"white",width:5.4},name:"BTC outline",hoverinfo:"skip",showlegend:false});
+  traces.push({x:plotDates,y:plotPrices,mode:"lines",line:{color:"black",width:2.35},name:"BTC price",hovertemplate:"%{x}<br>BTC %{y:$,.0f}<extra></extra>"});
+
+  const currentBands=TAUS.map((_,qi)=>bands[qi][last]);
+  const price=hasLive ? livePriceObj.price : rows[last].close;
+  const risk=currentRisk(price,currentBands),bn=bandName(risk);
+  document.getElementById("price").textContent=fmtMoney(price);
+  document.getElementById("risk").textContent=risk.toFixed(1)+"%";
+  document.getElementById("mid").textContent=fmtMoney(currentBands[5]);
+  document.getElementById("band").textContent=bn;
+  document.getElementById("bandList").innerHTML="<b>Live current band levels</b><br>"+LABELS.map((lab,i)=>`<span class="sw" style="background:${COLORS[i]}"></span>${lab}: ${fmtMoney(currentBands[i])}–${fmtMoney(currentBands[i+1])}`).join("<br>");
+
+  let outside=0,total=0;
+  for(const i of idx){total++; if(rows[i].close<bands[0][i] || rows[i].close>bands[10][i])outside++;}
+  const validationDates=["2021-11-10","2022-03-28","2022-11-21","2025-01-20","2025-07-14","2026-05-29"];
+  const validationHtml=validationDates.map(ds=>{
+    const ci=closestIndex(rows,ds), b=TAUS.map((_,qi)=>bands[qi][ci]), rr=currentRisk(rows[ci].close,b);
+    return `${fmtDate(rows[ci].date)}: ${rr.toFixed(1)}% · ${bandName(rr)}`;
+  }).join("<br>");
+  document.getElementById("checks").innerHTML=
+    `<b>Model diagnostics</b><br>`+
+    `Candidate settings tested: ${model.tested || 0}<br>`+
+    `Visible closes outside 1–99%: ${outside}/${total}<br>`+
+    `<br>The diagnostic values are not trading signals.`;
+
+  const info=[
+    `<b>EQM RAINBOW</b> · ${hasLive ? liveDate + " live" : fmtDate(rows[last].date)}`,
+    `Price&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${fmtMoney(price)}`,
+    `EQM 50%&nbsp;&nbsp;&nbsp; ${fmtMoney(currentBands[5])}`,
+    `EQM Risk&nbsp;&nbsp; ${risk.toFixed(1)}%`,
+    `Current band: ${bn}`
+  ].join("<br>");
+
+  Plotly.newPlot("chart",traces,{
+    title:{text:`Bitcoin Empirical Quantile Model Rainbow — ${hasLive ? liveDate + " live" : fmtDate(rows[last].date)}`,font:{size:18,color:"#111"}},
+    paper_bgcolor:"#fff",plot_bgcolor:"#fff",margin:{l:22,r:70,t:68,b:52},
+    xaxis:{showgrid:true,gridcolor:"rgba(0,0,0,0.08)",tickfont:{color:"#222"}},
+    yaxis:{type:"log",side:"right",showgrid:true,gridcolor:"rgba(0,0,0,0.08)",tickfont:{color:"#222"},tickprefix:"$",range:[Math.log10(2800),Math.log10(Math.max(160000,currentBands[10]*1.08))]},
+    legend:{x:0.855,y:0.02,xanchor:"left",yanchor:"bottom",bgcolor:"rgba(255,255,255,0.97)",bordercolor:"#999",borderwidth:1,font:{color:"#111",size:11},traceorder:"reversed"},
+    annotations:[
+      {text:info,xref:"paper",yref:"paper",x:0.015,y:0.96,xanchor:"left",yanchor:"top",align:"left",showarrow:false,bgcolor:"rgba(255,255,255,0.95)",bordercolor:"#8a8a8a",borderwidth:1,borderpad:6,font:{family:"ui-monospace, monospace",size:12,color:"#111"}}
+    ]
+  },{responsive:true,displayModeBar:false});
+
+  const st=document.getElementById("status");
+  st.className="status";
+  const lastCloseTime=rows[last].closeTime ? new Date(rows[last].closeTime).toISOString() : "closed daily sample";
+  const liveLine=hasLive ? `\nLive current price: ${fmtMoney(livePriceObj.price)} from ${livePriceObj.source}.` : "";
+  st.textContent=`Loaded ${rows.length.toLocaleString()} Binance BTCUSDT CLOSED daily candles through ${fmtDate(rows[last].date)}.\nLast candle close time: ${lastCloseTime}.\nSource: ${source}.\nChart dates use Binance UTC daily candle dates. Closed candles are determined from Binance server time.${liveLine}\nClosed daily candles stay locked; the current forming day uses live price until it closes.\nTested ${model.tested || 0} generic smooth-tail candidates.\nCurrent model state: ${risk.toFixed(1)}% · ${bn}.`;
+}
+
+
+document.getElementById("fetchBtn").addEventListener("click",async()=>{
+  const btn=document.getElementById("fetchBtn");
+  const st=document.getElementById("status");
+  btn.disabled=true;
+  btn.textContent="Working...";
+  st.className="status";
+  st.textContent="Fetching Binance BTCUSD data...";
+  try{
+    const {rows,source,serverTodayUTC}=await fetchBinanceOnly();
+    st.textContent="Fetching current Binance BTCUSD price...";
+    let livePriceObj=null;
+    try{ livePriceObj=await fetchBinanceCurrentPrice(); }
+    catch(e){ console.warn(e); livePriceObj=null; }
+    st.textContent="Running optimized smooth-tail model...";
+    const model=await optimizeEQM(rows,(done,total)=>{
+      st.textContent=`Running optimized smooth-tail model... ${done}/${total}`;
+    });
+    render(model,source,livePriceObj);
+  }catch(e){
+    st.className="status err";
+    st.textContent="Fetch/model failed: "+e.message+"\nRetry in a moment. Some browsers/networks block public API calls.";
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Fetch Binance BTCUSD Data";
+  }
+});
+</script>
+</body>
+</html>
