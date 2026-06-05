@@ -188,7 +188,7 @@ details.clean .code{border:0;background:transparent;padding:8px 0 0;margin:0}
 
 <div class="sectionTitle">DCA calculator</div>
 <div class="helpText">
-This converts the EQM allocation signal into a daily DCA amount. The app can also estimate a DCA period from how long previous fire-sale/accumulate episodes lasted.
+This converts the EQM allocation signal into a daily DCA amount so you do not deploy all cash at once.
 </div>
 <div class="card" style="margin-bottom:10px">
   <div class="label">Total Cash Reserve</div>
@@ -200,8 +200,7 @@ This converts the EQM allocation signal into a daily DCA amount. The app can als
   <div class="helpText" style="margin-top:8px">
     Risk allocation = max(0, 1 - 2 × EQM Risk)<br>
     Total deployable now = Cash Reserve × Risk Allocation<br>
-    Daily DCA = Total Deployable Now ÷ DCA Period<br>
-    Suggested period uses a conservative 75th-percentile length of prior low-risk episodes, with a 30-day minimum
+    Daily DCA = Total Deployable Now ÷ DCA Period
   </div>
 
   <table class="kv" style="margin-top:8px">
@@ -209,8 +208,6 @@ This converts the EQM allocation signal into a daily DCA amount. The app can als
       <tr><td>Risk allocation signal</td><td id="autoAllocationOutput">—</td></tr>
       <tr><td>Total deployable over period</td><td id="deployableBudgetOutput">—</td></tr>
       <tr><td>Suggested DCA today</td><td id="dcaCalcOutput">—</td></tr>
-<tr><td>Model-suggested DCA period</td><td id="suggestedDcaPeriodOutput">—</td></tr>
-<tr><td>Fire sale / accumulate history</td><td id="zoneHistoryOutput">—</td></tr>
     </tbody>
   </table>
 </div>
@@ -566,7 +563,6 @@ async function optimizeEQM(rows,onProgress){
 
 
 let latestEqmRisk = null;
-let latestSuggestedDcaPeriod = null;
 
 function formatUserAmount(v){
   if(!isFinite(v)) return "—";
@@ -606,63 +602,6 @@ function updateDcaCalculator(){
   allocOut.textContent=`${(allocation*100).toFixed(0)}% of cash`;
   budgetOut.textContent=formatUserAmount(deployable);
   dcaOut.textContent=`${formatUserAmount(daily)} / day`;
-}
-
-
-function percentileEpisode(values,p){
-  if(!values || !values.length) return 0;
-  const sorted=values.slice().sort((a,b)=>a-b);
-  const pos=(sorted.length-1)*p;
-  const lo=Math.floor(pos), hi=Math.ceil(pos);
-  if(lo===hi) return sorted[lo];
-  return sorted[lo]+(sorted[hi]-sorted[lo])*(pos-lo);
-}
-
-function summarizeEpisodes(flags){
-  const lengths=[];
-  let cur=0;
-  for(const v of flags){
-    if(v){cur++;}
-    else if(cur>0){lengths.push(cur);cur=0;}
-  }
-  if(cur>0) lengths.push(cur);
-  if(!lengths.length) return {count:0,avg:0,median:0,p75:0,max:0};
-  const sorted=lengths.slice().sort((a,b)=>a-b);
-  const avg=lengths.reduce((a,b)=>a+b,0)/lengths.length;
-  const mid=Math.floor(sorted.length/2);
-  const median=sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
-  const max=Math.max(...lengths);
-  const p75=percentileEpisode(lengths,0.75);
-  return {count:lengths.length,avg,median,p75,max};
-}
-
-function calculateZoneDurationStats(rows,bands){
-  const risks=[];
-  for(let i=0;i<rows.length;i++){
-    const b=TAUS.map((_,qi)=>bands[qi][i]);
-    risks.push(currentRisk(rows[i].close,b));
-  }
-
-  const fire=summarizeEpisodes(risks.map(r=>r<10));
-  const accumulate=summarizeEpisodes(risks.map(r=>r>=10 && r<20));
-  const low=summarizeEpisodes(risks.map(r=>r<20));
-  const cheapOrBetter=summarizeEpisodes(risks.map(r=>r<30));
-
-  return {risks,fire,accumulate,low,cheapOrBetter};
-}
-
-function suggestedPeriodFromRisk(risk,stats){
-  // Use a conservative historical episode estimate.
-  // v46 used the median and allowed a 7-day floor, which could be too short.
-  // v47 uses the 75th percentile of previous low-risk episode lengths and a
-  // practical 30-day minimum so the DCA schedule behaves like a true DCA.
-  let period;
-  if(risk < 10) period = stats.low.p75 || stats.fire.p75 || 60;
-  else if(risk < 20) period = stats.low.p75 || stats.accumulate.p75 || 45;
-  else if(risk < 30) period = stats.cheapOrBetter.p75 || stats.low.p75 || 30;
-  else period = 30;
-
-  return Math.max(30, Math.round(period));
 }
 
 function render(model,source,livePriceObj=null){
@@ -707,19 +646,6 @@ function render(model,source,livePriceObj=null){
   document.getElementById("band").textContent=bn;
   if(document.getElementById("eqm90")) document.getElementById("eqm90").textContent=fmtMoney(currentBands[9]);
   if(document.getElementById("eqm99")) document.getElementById("eqm99").textContent=fmtMoney(currentBands[10]);
-
-  const zoneStats=calculateZoneDurationStats(rows,bands);
-  latestSuggestedDcaPeriod=suggestedPeriodFromRisk(risk,zoneStats);
-  const suggestedOut=document.getElementById("suggestedDcaPeriodOutput");
-  const zoneOut=document.getElementById("zoneHistoryOutput");
-  if(suggestedOut) suggestedOut.textContent=`${latestSuggestedDcaPeriod} days`;
-  if(zoneOut){
-    zoneOut.innerHTML=
-      `Fire sale p75: ${Math.round(zoneStats.fire.p75 || 0)}d<br>`+
-      `Accumulate p75: ${Math.round(zoneStats.accumulate.p75 || 0)}d<br>`+
-      `Below 20% p75: ${Math.round(zoneStats.low.p75 || 0)}d`;
-  }
-  updateDcaCalculator();
   const distMid=(price/currentBands[5]-1)*100;
   const dist90=(currentBands[9]/price-1)*100;
   const dist99=(currentBands[10]/price-1)*100;
