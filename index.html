@@ -185,7 +185,7 @@ body.sideCollapsed .tabbar{padding-left:8px}
     <div class="ismWrap">
       <div class="ismHead">
         <h2>Rates & Macro Events</h2>
-        <div class="desc">Upcoming U.S. macro events in UTC plus current central-bank policy rates with prior values shown underneath.</div>
+        
       </div>
       <div id="macroPanel" class="macroPanel">
         <h3>Important macro events [UTC]</h3>
@@ -1244,44 +1244,70 @@ function embeddedMacroFallback(){
     source:"calendar + live/cache attempts"
   };
 }
+function rowsForFastMacro(seriesId){
+  const cached = readSeriesCache(seriesId);
+  return cached.length ? cached : macroFallbackRows(seriesId);
+}
+
+function buildRatesHtmlFromRows(rowsById){
+  const fedRows=rowsById.DFF||[], ecbRows=rowsById.ECBMRRFR||[], boeRows=rowsById.BOERUKM||[];
+  const bojRows=rowsById.IRSTCI01JPM156N||[], rbaRows=rowsById.RBA_CASH_TARGET||[], snbRows=rowsById.IRSTCI01CHM156N||[];
+  const fed=latestVal(fedRows), ecb=latestVal(ecbRows), boe=latestVal(boeRows), boj=latestVal(bojRows), rba=latestVal(rbaRows), snb=latestVal(snbRows);
+  const fedPrev=previousDistinctVal(fedRows,fed), ecbPrev=previousDistinctVal(ecbRows,ecb), boePrev=previousDistinctVal(boeRows,boe), bojPrev=previousDistinctVal(bojRows,boj), rbaPrev=previousDistinctVal(rbaRows,rba), snbPrev=previousDistinctVal(snbRows,snb);
+  return (
+    macroRateHtml(flagIcon("US")+"Fed", fed?.value, "%", fed?.date, fedPrev)+
+    macroRateHtml(flagIcon("EU")+"ECB", ecb?.value, "%", ecb?.date, ecbPrev)+
+    macroRateHtml(flagIcon("GB")+"BoE", boe?.value, "%", boe?.date, boePrev)+
+    macroRateHtml(flagIcon("JP")+"BOJ", boj?.value, "%", boj?.date, bojPrev)+
+    macroRateHtml(flagIcon("AU")+"RBA", rba?.value, "%", rba?.date, rbaPrev)+
+    macroRateHtml(flagIcon("CH")+"SNB", snb?.value, "%", snb?.date, snbPrev)
+  );
+}
+
 async function renderMacroInfo(){
   renderMacroCalendar();
   const cacheKey="eqmMacroCacheV2_ratesOnly";
   const now=new Date();
   const rateEl=document.getElementById("macroRates");
   const updEl=document.getElementById("macroUpdated");
-  if(rateEl) rateEl.innerHTML=macroRateHtml(flagIcon("US")+"Fed",NaN)+macroRateHtml(flagIcon("EU")+"ECB",NaN)+macroRateHtml(flagIcon("GB")+"BoE",NaN)+macroRateHtml(flagIcon("JP")+"BOJ",NaN)+macroRateHtml(flagIcon("AU")+"RBA",NaN)+macroRateHtml(flagIcon("CH")+"SNB",NaN);
-  if(updEl) updEl.textContent="Refreshing interest-rate data…";
 
-  // Prefer live/public series where available. Bundled values only fill blocked
-  // or unavailable series so the panel does not remain empty.
-  const [fedRows, ecbRows, boeRows, bojRows, rbaRows, snbRows] = await Promise.all([
-    fetchFredCsv("DFF"),          // Fed effective funds, daily
-    fetchFredCsv("ECBMRRFR"),     // ECB main refinancing operations, daily
-    fetchFredCsv("BOERUKM"),      // Bank of England policy rate, monthly
+  // Instant render from previous successful local cache or bundled fallback values.
+  const fastRows = {
+    DFF: rowsForFastMacro("DFF"),
+    ECBMRRFR: rowsForFastMacro("ECBMRRFR"),
+    BOERUKM: rowsForFastMacro("BOERUKM"),
+    IRSTCI01JPM156N: rowsForFastMacro("IRSTCI01JPM156N"),
+    RBA_CASH_TARGET: rowsForFastMacro("RBA_CASH_TARGET"),
+    IRSTCI01CHM156N: rowsForFastMacro("IRSTCI01CHM156N")
+  };
+  const fastHtml = buildRatesHtmlFromRows(fastRows);
+  const fastUpdated=`Last updated ${now.toLocaleString(undefined,{timeZone:"UTC",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} UTC`;
+  if(rateEl) rateEl.innerHTML=fastHtml;
+  if(updEl) updEl.textContent=fastUpdated;
+
+  // Refresh live/public sources in the background, then replace values when done.
+  Promise.all([
+    fetchFredCsv("DFF"),
+    fetchFredCsv("ECBMRRFR"),
+    fetchFredCsv("BOERUKM"),
     fetchFredCsv("IRSTCI01JPM156N"),
     fetchFredCsv("RBA_CASH_TARGET"),
     fetchFredCsv("IRSTCI01CHM156N")
-  ]);
-
-  const fed=latestVal(fedRows), ecb=latestVal(ecbRows), boe=latestVal(boeRows), boj=latestVal(bojRows), rba=latestVal(rbaRows), snb=latestVal(snbRows);
-  const fedPrev=previousDistinctVal(fedRows,fed), ecbPrev=previousDistinctVal(ecbRows,ecb), boePrev=previousDistinctVal(boeRows,boe), bojPrev=previousDistinctVal(bojRows,boj), rbaPrev=previousDistinctVal(rbaRows,rba), snbPrev=previousDistinctVal(snbRows,snb);
-
-  const ratesHtml=
-    macroRateHtml(flagIcon("US")+"Fed", fed?.value, "%", fed?.date, fedPrev)+
-    macroRateHtml(flagIcon("EU")+"ECB", ecb?.value, "%", ecb?.date, ecbPrev)+
-    macroRateHtml(flagIcon("GB")+"BoE", boe?.value, "%", boe?.date, boePrev)+
-    macroRateHtml(flagIcon("JP")+"BOJ", boj?.value, "%", boj?.date, bojPrev)+
-    macroRateHtml(flagIcon("AU")+"RBA", rba?.value, "%", rba?.date, rbaPrev)+
-    macroRateHtml(flagIcon("CH")+"SNB", snb?.value, "%", snb?.date, snbPrev);
-
-  const updated=`Last updated ${now.toLocaleString(undefined,{timeZone:"UTC",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} UTC`;
-
-  if(rateEl) rateEl.innerHTML=ratesHtml;
-  if(updEl) updEl.textContent=updated;
-  try{
-    localStorage.setItem(cacheKey,JSON.stringify({day:isoDayUTC(now),html:{rates:ratesHtml,updated}}));
-  }catch(_){}
+  ]).then(([fedRows, ecbRows, boeRows, bojRows, rbaRows, snbRows])=>{
+    const liveRows={
+      DFF:fedRows, ECBMRRFR:ecbRows, BOERUKM:boeRows,
+      IRSTCI01JPM156N:bojRows, RBA_CASH_TARGET:rbaRows, IRSTCI01CHM156N:snbRows
+    };
+    const ratesHtml=buildRatesHtmlFromRows(liveRows);
+    const updated=`Last updated ${new Date().toLocaleString(undefined,{timeZone:"UTC",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} UTC`;
+    if(rateEl) rateEl.innerHTML=ratesHtml;
+    if(updEl) updEl.textContent=updated;
+    try{
+      localStorage.setItem(cacheKey,JSON.stringify({day:isoDayUTC(new Date()),html:{rates:ratesHtml,updated}}));
+    }catch(_){}
+  }).catch(err=>{
+    console.warn("Background interest-rate refresh failed; cached/bundled values remain active.", err);
+  });
 }
 
 function setActiveTab(which){
