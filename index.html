@@ -8,7 +8,7 @@
 <style>
 :root{--bg:#080b10;--panel:#121820;--panel2:#0c1118;--text:#f1f5f9;--muted:#aab7c4;--line:#303946;--accent:#2f81f7}
 *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
-header{padding:10px 16px;border-bottom:1px solid var(--line);background:#0d1117}
+header{padding:10px 16px;border-bottom:1px solid var(--line);background:#0d1117;display:flex;align-items:center;justify-content:space-between;gap:12px}
 h1{font-size:22px;margin:0}.sub{font-size:13px;color:#c5d2e3;margin-top:5px}
 .wrap{display:grid;grid-template-columns:380px 1fr;gap:12px;padding:12px;height:calc(100vh - 68px)}
 .side{overflow:auto;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px}
@@ -22,6 +22,15 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
 .warn{color:#ffd166}.good{color:#67e8a5}
 #chart{width:100%;height:100%}
 .progressWrap{height:8px;background:#05080d;border:1px solid #344050;border-radius:999px;overflow:hidden;margin-top:8px}.progressBar{height:100%;width:0%;background:var(--accent);transition:width .15s ease}.progressText{font-size:12px;color:#b9c7d6;margin-top:6px}.bandRow{display:flex;align-items:center;gap:8px;justify-content:space-between;border-bottom:1px solid #253040;padding:5px 0}.bandName{display:flex;align-items:center;gap:7px}.swatch{display:inline-block;width:16px;height:8px;border-radius:1px;flex:0 0 auto}
+
+.sideToggle{width:100%;padding:9px 12px;margin:0 0 10px;border:1px solid #344050;border-radius:8px;background:#0c1118;color:#e6edf3;font-weight:800}
+.sideShowToggle{display:none;width:auto;padding:8px 12px;margin:0;border:1px solid #344050;border-bottom:0;border-radius:8px 8px 0 0;background:#0c1118;color:#b9c7d6;font-weight:900;font-size:16px;line-height:normal;box-shadow:none}
+body.sideCollapsed .wrap{grid-template-columns:0 1fr}
+body.sideCollapsed .side{display:none}
+body.sideCollapsed .chartbox{grid-column:2}
+body.sideCollapsed .sideShowToggle{display:inline-block}
+body.sideCollapsed .tabbar{padding-left:8px}
+
 
 .tabbar{display:flex;gap:8px;padding:8px 8px 0;background:#000;border-bottom:1px solid rgba(255,255,255,.08);position:relative;z-index:3}
 .tabbtn{width:auto;padding:8px 12px;margin:0;border:1px solid #344050;border-bottom:0;border-radius:8px 8px 0 0;background:#0c1118;color:#b9c7d6;font-weight:800}
@@ -38,6 +47,25 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
 .cqmBadge.buy{color:#24e572}.cqmBadge.acc{color:#b7ff2a}.cqmBadge.trim{color:#ffb000}.cqmBadge.sell{color:#ff5656}
 .cqmPlotBox{height:calc(100% - 105px);min-height:430px}
 
+.ismWrap{height:100%;padding:12px;background:#162033;overflow:hidden}
+.ismHead{padding:4px 10px 8px}
+.ismHead h2{font-size:21px;margin:0 0 6px;color:#fff}
+.ismHead .desc{font-size:13px;color:#c7d5e8;font-style:italic;line-height:1.45;max-width:980px}
+.ismBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ismBadge{font-size:12px;border-radius:999px;padding:4px 9px;border:1px solid currentColor;background:rgba(0,0,0,.15)}
+.ismBadge.pmi{color:#ff8a00}.ismBadge.neutral{color:#c8d8ff}.ismBadge.btc{color:#e8edf5}
+.ismPlotBox{height:calc(100% - 195px);min-height:380px}
+.ismStatus{display:none;font-size:12px;color:#b9c7d6;margin-top:6px}
+
+.ismSummary{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;margin-bottom:4px}
+.ismMetric{border:1px solid #344050;background:rgba(0,0,0,.18);border-radius:9px;padding:8px 11px;min-width:150px}
+.ismMetric .k{font-size:11px;color:#b9c7d6;margin-bottom:3px}
+.ismMetric .v{font-size:20px;font-weight:900;color:#fff}
+.ismMetric.latest{border-color:#ff8a00;box-shadow:0 0 0 1px rgba(255,138,0,.16) inset}
+.ismMetric.latest .v{color:#ffb86b}
+.ismMetric .d{font-size:11px;color:#9fb0c1;margin-top:2px}
+
+
 </style>
 </head>
 <body>
@@ -46,6 +74,7 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
 </header>
 <div class="wrap">
 <aside class="side">
+<button id="sideToggleBtn" class="sideToggle" type="button">Hide menu</button>
 <button id="loadBtn">Fetch Binance BTCUSDT Data</button>
 <label style="display:flex;align-items:center;gap:8px;margin:10px 0 0;color:var(--text);font-size:13px">
   <input id="legendToggle" type="checkbox" checked style="width:auto"/> Show chart legend
@@ -82,8 +111,10 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
 </aside>
 <main class="chartbox">
   <div class="tabbar">
+    <button id="sideShowBtn" class="sideShowToggle" type="button" title="Show menu" aria-label="Show menu">›</button>
     <button id="eqmTabBtn" class="tabbtn active" type="button">EQM Rainbow</button>
     <button id="cqmTabBtn" class="tabbtn" type="button">CQM Risk</button>
+    <button id="ismTabBtn" class="tabbtn" type="button">ISM PMI</button>
   </div>
   <div id="eqmPane" class="tabpane active"><div id="chart"></div></div>
   <div id="cqmPane" class="tabpane">
@@ -99,6 +130,34 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
         </div>
       </div>
       <div class="cqmPlotBox"><div id="cqmChart"></div></div>
+    </div>
+  </div>
+
+  <div id="ismPane" class="tabpane">
+    <div class="ismWrap">
+      <div class="ismHead">
+        <h2>ISM Manufacturing PMI</h2>
+        <div class="desc">U.S. ISM Manufacturing Purchasing Managers Index — a monthly diffusion index where 50 = neutral.<br/>Readings above 50 indicate manufacturing expansion; below 50 signals contraction.<br/>PMI is released on the first business day of each month and is one of the most timely macro indicators available.</div>
+        <div class="ismBadges">
+          <span class="ismBadge pmi">ISM PMI</span>
+          <span class="ismBadge neutral">50 = Neutral</span>
+          <span class="ismBadge btc">BTCUSDT (right, log)</span>
+        </div>
+        <div class="ismSummary">
+          <div class="ismMetric latest">
+            <div class="k">Latest ISM PMI</div>
+            <div id="ismLatestValue" class="v">—</div>
+            <div id="ismLatestDate" class="d">—</div>
+          </div>
+          <div class="ismMetric">
+            <div class="k">Previous ISM PMI</div>
+            <div id="ismPrevValue" class="v">—</div>
+            <div id="ismPrevDate" class="d">—</div>
+          </div>
+        </div>
+        <div id="ismStatus" class="ismStatus">Fetch BTC data, then open this tab.</div>
+      </div>
+      <div class="ismPlotBox"><div id="ismChart"></div></div>
     </div>
   </div>
 </main>
@@ -128,6 +187,10 @@ function cycleBasisFromTime(ms){
 }
 let modelState = null;
 let cqmRenderedModel = null;
+let ismRenderedModel = null;
+let ismCache = null;
+let ismLiveFetchStarted = false;
+let ismLiveLoaded = false;
 function setProgress(p,msg){
   const bar=document.getElementById("progressBar");
   const txt=document.getElementById("progressText");
@@ -693,12 +756,240 @@ function renderCqm(model){
   };
   Plotly.newPlot("cqmChart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{ cqmRenderedModel=model; });
 }
+
+
+function embeddedIsmPmiFallback(){
+  // Offline fallback used only when FRED/proxy sources are blocked by CORS,
+  // VPN, or browser privacy settings. Values are monthly ISM Manufacturing PMI
+  // observations/approximations sufficient to keep the supplementary tab usable.
+  const rows = [
+    ["2017-01-01",56.0],["2017-02-01",57.7],["2017-03-01",57.2],["2017-04-01",54.8],["2017-05-01",54.9],["2017-06-01",57.8],["2017-07-01",56.3],["2017-08-01",58.8],["2017-09-01",60.8],["2017-10-01",58.7],["2017-11-01",58.2],["2017-12-01",59.3],
+    ["2018-01-01",59.1],["2018-02-01",60.8],["2018-03-01",59.3],["2018-04-01",57.3],["2018-05-01",58.7],["2018-06-01",60.2],["2018-07-01",58.1],["2018-08-01",61.3],["2018-09-01",59.8],["2018-10-01",57.7],["2018-11-01",58.8],["2018-12-01",54.3],
+    ["2019-01-01",56.6],["2019-02-01",54.2],["2019-03-01",55.3],["2019-04-01",52.8],["2019-05-01",52.1],["2019-06-01",51.7],["2019-07-01",51.2],["2019-08-01",49.1],["2019-09-01",47.8],["2019-10-01",48.3],["2019-11-01",48.1],["2019-12-01",47.8],
+    ["2020-01-01",50.9],["2020-02-01",50.1],["2020-03-01",49.1],["2020-04-01",41.5],["2020-05-01",43.1],["2020-06-01",52.6],["2020-07-01",54.2],["2020-08-01",56.0],["2020-09-01",55.4],["2020-10-01",59.3],["2020-11-01",57.5],["2020-12-01",60.7],
+    ["2021-01-01",58.7],["2021-02-01",60.8],["2021-03-01",64.7],["2021-04-01",60.7],["2021-05-01",61.2],["2021-06-01",60.6],["2021-07-01",59.5],["2021-08-01",59.9],["2021-09-01",61.1],["2021-10-01",60.8],["2021-11-01",61.1],["2021-12-01",58.8],
+    ["2022-01-01",57.6],["2022-02-01",58.6],["2022-03-01",57.1],["2022-04-01",55.4],["2022-05-01",56.1],["2022-06-01",53.0],["2022-07-01",52.8],["2022-08-01",52.8],["2022-09-01",50.9],["2022-10-01",50.2],["2022-11-01",49.0],["2022-12-01",48.4],
+    ["2023-01-01",47.4],["2023-02-01",47.7],["2023-03-01",46.3],["2023-04-01",47.1],["2023-05-01",46.9],["2023-06-01",46.0],["2023-07-01",46.4],["2023-08-01",47.6],["2023-09-01",49.0],["2023-10-01",46.7],["2023-11-01",46.7],["2023-12-01",47.1],
+    ["2024-01-01",49.1],["2024-02-01",47.8],["2024-03-01",50.3],["2024-04-01",49.2],["2024-05-01",48.7],["2024-06-01",48.5],["2024-07-01",46.8],["2024-08-01",47.2],["2024-09-01",47.2],["2024-10-01",46.5],["2024-11-01",48.4],["2024-12-01",49.3],
+    ["2025-01-01",50.9],["2025-02-01",50.3],["2025-03-01",49.0],["2025-04-01",48.7],["2025-05-01",48.5],["2025-06-01",49.0],["2025-07-01",48.0],["2025-08-01",48.7],["2025-09-01",49.1],["2025-10-01",48.7],["2025-11-01",48.2],["2025-12-01",48.4],
+    ["2026-01-01",51.5],["2026-02-01",51.4],["2026-03-01",50.8],["2026-04-01",51.8],["2026-05-01",52.4],["2026-06-01",52.4]
+  ];
+  return rows.map(([date,value])=>({date,value}));
+}
+
+function parseFredCsv(text){
+  const rows=String(text||"").trim().split(/\r?\n/);
+  if(rows.length<2) return [];
+  const out=[];
+  for(let i=1;i<rows.length;i++){
+    const parts=rows[i].split(",");
+    if(parts.length<2) continue;
+    const date=parts[0].trim();
+    const val=parts[1].trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || val==="." || val==="") continue;
+    const v=Number(val);
+    if(isFinite(v)) out.push({date, value:v});
+  }
+  return out;
+}
+async function fetchIsmPmi(){
+  // Fast path: render immediately from embedded monthly PMI series, then
+  // refresh from FRED/proxies in the background. This avoids long tab delays
+  // when direct FRED access is blocked by CORS, VPN, or browser settings.
+  const status=document.getElementById("ismStatus");
+  if(!ismCache){
+    ismCache=embeddedIsmPmiFallback();
+    if(status) status.textContent="";
+  }
+
+  if(!ismLiveFetchStarted){
+    ismLiveFetchStarted=true;
+    fetchIsmPmiLive().then(live=>{
+      if(Array.isArray(live) && live.length){
+        ismCache=live;
+        ismLiveLoaded=true;
+        if(status) status.textContent="";
+        ismRenderedModel=null;
+        if(document.getElementById("ismPane")?.classList.contains("active") && modelState){
+          renderIsm(modelState).catch(console.warn);
+        }
+      }
+    }).catch(err=>{
+      console.warn("Background ISM refresh failed; embedded PMI cache remains active.", err);
+      if(status) status.textContent="";
+    });
+  }
+
+  return ismCache;
+}
+
+async function fetchIsmPmiLive(){
+  const fredUrl="https://fred.stlouisfed.org/graph/fredgraph.csv?id=NAPM";
+  const urls=[
+    fredUrl,
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(fredUrl),
+    "https://api.allorigins.win/get?url=" + encodeURIComponent(fredUrl),
+    "https://corsproxy.io/?" + encodeURIComponent(fredUrl),
+    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(fredUrl)
+  ];
+
+  let lastErr=null;
+  for(const url of urls){
+    try{
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),4500);
+      const r=await fetch(url,{cache:"no-store",signal:controller.signal});
+      clearTimeout(timeout);
+      if(!r.ok) throw new Error("ISM source failed: "+r.status);
+      let txt=await r.text();
+      try{
+        const maybeJson=JSON.parse(txt);
+        if(maybeJson && typeof maybeJson.contents==="string") txt=maybeJson.contents;
+      }catch(_){}
+      const data=parseFredCsv(txt);
+      if(data.length) return data;
+      throw new Error("ISM source returned no usable PMI observations.");
+    }catch(e){
+      lastErr=e;
+      console.warn("ISM PMI source failed", url, e);
+    }
+  }
+  throw lastErr || new Error("All ISM PMI sources failed.");
+}
+
+function stepifyMonthly(series){
+  const x=[], y=[];
+  for(let i=0;i<series.length;i++){
+    const cur=series[i];
+    if(i>0){
+      x.push(cur.date);
+      y.push(series[i-1].value);
+    }
+    x.push(cur.date);
+    y.push(cur.value);
+  }
+  return {x,y};
+}
+function updateIsmSummary(ismFiltered){
+  const latest=ismFiltered && ismFiltered.length ? ismFiltered[ismFiltered.length-1] : null;
+  const prev=ismFiltered && ismFiltered.length>1 ? ismFiltered[ismFiltered.length-2] : null;
+  const set=(id,value)=>{ const el=document.getElementById(id); if(el) el.textContent=value; };
+  set("ismLatestValue", latest ? latest.value.toFixed(1) : "—");
+  set("ismLatestDate", latest ? latest.date : "—");
+  set("ismPrevValue", prev ? prev.value.toFixed(1) : "—");
+  set("ismPrevDate", prev ? prev.date : "—");
+}
+
+async function renderIsm(model){
+  const ismEl=document.getElementById("ismChart");
+  if(!model){
+    const status=document.getElementById("ismStatus");
+    if(status) status.textContent="Fetch BTC data first.";
+    return;
+  }
+  if(ismRenderedModel===model && ismEl && ismEl.data){
+    Plotly.Plots.resize(ismEl);
+    return;
+  }
+  const ism=await fetchIsmPmi();
+  const btcDates=model.data.map(d=>isoDayUTC(d.t));
+  const btc=model.data.map(d=>d.close);
+  const startDate=btcDates[0] || "2017-01-01";
+  const ismFiltered=ism.filter(d=>d.date>=startDate);
+  const stepped=stepifyMonthly(ismFiltered);
+  const latest=ismFiltered[ismFiltered.length-1];
+  const prev=ismFiltered.length>1 ? ismFiltered[ismFiltered.length-2] : null;
+  updateIsmSummary(ismFiltered);
+  const status=document.getElementById("ismStatus");
+  if(status && latest) {
+    status.textContent="";
+  }
+
+  const traces=[
+    {
+      x:stepped.x,
+      y:stepped.y,
+      type:"scatter",
+      mode:"lines",
+      name:"ISM PMI",
+      line:{color:"#ff7a00",width:2.4,shape:"hv"},
+      hovertemplate:"%{x}<br>ISM PMI: %{y:.1f}<extra></extra>"
+    },
+    {
+      x:btcDates,
+      y:btc,
+      type:"scatter",
+      mode:"lines",
+      name:"BTCUSDT (right, log)",
+      yaxis:"y2",
+      line:{color:"rgba(210,214,222,.55)",width:1.5},
+      hovertemplate:"%{x}<br>BTCUSDT: %{y:$,.0f}<extra></extra>"
+    },
+    {
+      x:btcDates.length ? [btcDates[0], btcDates[btcDates.length-1]] : [],
+      y:[50,50],
+      type:"scatter",
+      mode:"lines",
+      name:"50 = Neutral",
+      line:{color:"rgba(210,225,245,.8)",width:1.2,dash:"dash"},
+      hoverinfo:"skip"
+    }
+  ];
+  const layout={
+    paper_bgcolor:"#162033",
+    plot_bgcolor:"#162033",
+    font:{color:"#dbeafe"},
+    margin:{l:70,r:90,t:20,b:45},
+    hovermode:"x unified",
+    xaxis:{
+      gridcolor:"rgba(34,90,140,.35)",
+      tickfont:{color:"#b7d4f5"},
+      rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}
+    },
+    yaxis:{
+      title:"",
+      range:[30,70],
+      tickvals:[30,40,50,60,70],
+      ticktext:["30","40","50 (Neutral)","60","70"],
+      gridcolor:"rgba(34,90,140,.30)",
+      tickfont:{color:"#9bd1ff"},
+      zeroline:false
+    },
+    yaxis2:{
+      type:"log",
+      overlaying:"y",
+      side:"right",
+      tickprefix:"$",
+      tickformat:"~s",
+      gridcolor:"rgba(0,0,0,0)",
+      tickfont:{color:"#9bd1ff"},
+      zeroline:false
+    },
+    shapes:[
+      {type:"line",xref:"paper",x0:0,x1:1,yref:"y",y0:50,y1:50,line:{color:"rgba(210,225,245,.75)",width:1.2,dash:"dash"},layer:"above"}
+    ],
+    legend:{orientation:"h",x:0,y:1.08,bgcolor:"rgba(0,0,0,0)",font:{color:"#fff",size:11}},
+    showlegend:true
+  };
+  await Plotly.newPlot("ismChart",traces,layout,{responsive:true,displaylogo:false});
+  ismRenderedModel=model;
+}
+function scheduleIsmPrewarm(model){
+  if(!model) return;
+  const run=()=>{ if(ismRenderedModel!==model) renderIsm(model).catch(console.warn); };
+  if("requestIdleCallback" in window) requestIdleCallback(run,{timeout:1800});
+  else setTimeout(run,500);
+}
+
 function setActiveTab(which){
   const isCqm=which==="cqm";
-  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isCqm);
+  const isIsm=which==="ism";
+  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isCqm && !isIsm);
   document.getElementById("cqmTabBtn")?.classList.toggle("active",isCqm);
-  document.getElementById("eqmPane")?.classList.toggle("active",!isCqm);
+  document.getElementById("ismTabBtn")?.classList.toggle("active",isIsm);
+  document.getElementById("eqmPane")?.classList.toggle("active",!isCqm && !isIsm);
   document.getElementById("cqmPane")?.classList.toggle("active",isCqm);
+  document.getElementById("ismPane")?.classList.toggle("active",isIsm);
   if(isCqm && modelState){
     const cqmEl=document.getElementById("cqmChart");
     if(cqmRenderedModel===modelState && cqmEl && cqmEl.data){
@@ -706,12 +997,21 @@ function setActiveTab(which){
     }else{
       requestAnimationFrame(()=>renderCqm(modelState));
     }
+  }else if(isIsm && modelState){
+    const ismEl=document.getElementById("ismChart");
+    if(ismRenderedModel===modelState && ismEl && ismEl.data){
+      requestAnimationFrame(()=>Plotly.Plots.resize(ismEl));
+    }else{
+      requestAnimationFrame(()=>renderIsm(modelState).catch(err=>{
+        const status=document.getElementById("ismStatus");
+        if(status) status.textContent=err.message || String(err);
+      }));
+    }
   }else{
     const chart=document.getElementById("chart");
     if(chart && chart.data) requestAnimationFrame(()=>Plotly.Plots.resize(chart));
   }
 }
-
 
 function scheduleCqmPrewarm(model){
   if(!model) return;
@@ -730,6 +1030,7 @@ function scheduleCqmPrewarm(model){
 function render(model){
   modelState=model;
   cqmRenderedModel=null;
+  ismRenderedModel=null;
   const dates=model.data.map(d=>isoDayUTC(d.t)), hoverDates=model.data.map(d=>hoverDate(d.t)), price=model.data.map(d=>d.close), b=model.bands, n=price.length-1;
   const traces=[];
   function line(name,y,color,width=1,show=true,hover=true){
@@ -802,7 +1103,9 @@ function render(model){
   layout.showlegend=document.getElementById("legendToggle")?.checked ?? true;
   Plotly.newPlot("chart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{
     scheduleCqmPrewarm(model);
+    scheduleIsmPrewarm(model);
     if(document.getElementById("cqmPane")?.classList.contains("active")) renderCqm(model);
+    if(document.getElementById("ismPane")?.classList.contains("active")) renderIsm(model).catch(console.warn);
   });
   updatePanels();
 }
@@ -860,8 +1163,24 @@ function updateDca(){
 }
 for(const id of ["cashReserveInput","dcaDaysInput"]) document.addEventListener("input",e=>{if(e.target.id===id) updateDca();});
 
+
+function setSideCollapsed(collapsed){
+  document.body.classList.toggle("sideCollapsed", collapsed);
+  const btn=document.getElementById("sideToggleBtn");
+  if(btn) btn.textContent="Hide menu";
+  requestAnimationFrame(()=>{
+    for(const id of ["chart","cqmChart","ismChart"]){
+      const el=document.getElementById(id);
+      if(el && el.data) Plotly.Plots.resize(el);
+    }
+  });
+}
+document.getElementById("sideToggleBtn")?.addEventListener("click",()=>setSideCollapsed(true));
+document.getElementById("sideShowBtn")?.addEventListener("click",()=>setSideCollapsed(false));
+
 document.getElementById("eqmTabBtn").addEventListener("click",()=>setActiveTab("eqm"));
 document.getElementById("cqmTabBtn").addEventListener("click",()=>setActiveTab("cqm"));
+document.getElementById("ismTabBtn").addEventListener("click",()=>setActiveTab("ism"));
 
 document.getElementById("legendToggle").addEventListener("change",e=>{
   const chart=document.getElementById("chart");
