@@ -600,16 +600,16 @@ async function buildModel(data,onProgress=null){
   return {xs,ys,mu,res,beta,bands,data,state};
 }
 const bandDefs=[
- ["0.01","0.1","1-10% · Fire sale","#173c70"],
- ["0.1","0.2","10-20% · Accumulate","#1f6f98"],
- ["0.2","0.3","20-30% · Cheap","#249b87"],
- ["0.3","0.4","30-40% · Value","#3ea353"],
- ["0.4","0.5","40-50% · Below mid","#8fbe4d"],
- ["0.5","0.6","50-60% · Above mid","#d2d21f"],
- ["0.6","0.7","60-70% · Warm","#e6a100"],
- ["0.7","0.8","70-80% · Hot","#e66a1a"],
- ["0.8","0.9","80-90% · FOMO","#cf3f32"],
- ["0.9","0.99","90-99% · Bubble","#b90012"]
+ ["0.01","0.1","1-10% · Fire sale","rgba(23,60,112,0.58)"],
+ ["0.1","0.2","10-20% · Accumulate","rgba(31,111,152,0.58)"],
+ ["0.2","0.3","20-30% · Cheap","rgba(36,155,135,0.58)"],
+ ["0.3","0.4","30-40% · Value","rgba(62,163,83,0.58)"],
+ ["0.4","0.5","40-50% · Below mid","rgba(143,190,77,0.58)"],
+ ["0.5","0.6","50-60% · Above mid","rgba(210,210,31,0.58)"],
+ ["0.6","0.7","60-70% · Warm","rgba(230,161,0,0.58)"],
+ ["0.7","0.8","70-80% · Hot","rgba(230,106,26,0.58)"],
+ ["0.8","0.9","80-90% · FOMO","rgba(207,63,50,0.58)"],
+ ["0.9","0.99","90-99% · Bubble","rgba(185,0,18,0.58)"]
 ];
 function bandForRisk(r){
   if(r<10)return "1-10% · Fire sale"; if(r<20)return "10-20% · Accumulate"; if(r<30)return "20-30% · Cheap"; if(r<40)return "30-40% · Value"; if(r<50)return "40-50% · Below mid";
@@ -1390,7 +1390,7 @@ function render(model){
       name:`${def[2]}  ${usd(lo[n])}-${usd(hi[n])}`,
       fill:"tonexty",
       fillcolor:def[3],
-      line:{color:def[3],width:7},
+      line:{color:"rgba(0,0,0,0)",width:0},
       hoverinfo:"skip",
       showlegend:true,
       legendrank:20+i,
@@ -1401,6 +1401,17 @@ function render(model){
   // Rails after fills.
   traces.push({x:dates,y:b.highRail,mode:"lines",name:`99.9% rail  ${usd(b.highRail[n])}`,line:{color:"#ff5c61",width:1.2},hoverinfo:"skip",showlegend:true,legendrank:10});
   traces.push({x:dates,y:b.lowRail,mode:"lines",name:`0.1% rail  ${usd(b.lowRail[n])}`,line:{color:"#5fb8ff",width:1.2},hoverinfo:"skip",showlegend:true,legendrank:11});
+  traces.push({
+    x:dates,
+    y:b["0.5"],
+    mode:"lines",
+    name:`EQM 50%  ${usd(b["0.5"][n])}`,
+    line:{color:"#ffffff",width:2.3},
+    customdata:hoverDates,
+    hovertemplate:"%{customdata}<br>EQM 50%: %{y:$,.0f}<extra></extra>",
+    showlegend:true,
+    legendrank:12
+  });
 
   // BTC price last = visually on top, with a black underlay for readability.
   traces.push({
