@@ -12,7 +12,7 @@ header{padding:10px 16px;border-bottom:1px solid var(--line);background:#0d1117}
 h1{font-size:22px;margin:0}.sub{font-size:13px;color:#c5d2e3;margin-top:5px}
 .wrap{display:grid;grid-template-columns:380px 1fr;gap:12px;padding:12px;height:calc(100vh - 68px)}
 .side{overflow:auto;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px}
-.chartbox{border:1px solid #747b86;background:#000;border-radius:10px;min-height:600px}
+.chartbox{border:1px solid #747b86;background:#000;border-radius:10px;min-height:600px;position:relative;overflow:hidden}
 button{width:100%;padding:12px;border:0;border-radius:8px;background:var(--accent);color:white;font-weight:700;cursor:pointer}button:disabled{opacity:.65;cursor:not-allowed}
 .card{border:1px solid var(--line);background:var(--panel2);border-radius:10px;margin-top:10px;padding:12px}
 .row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #253040;padding:7px 0;font-size:13px}.row:last-child{border-bottom:0}
@@ -22,6 +22,22 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
 .warn{color:#ffd166}.good{color:#67e8a5}
 #chart{width:100%;height:100%}
 .progressWrap{height:8px;background:#05080d;border:1px solid #344050;border-radius:999px;overflow:hidden;margin-top:8px}.progressBar{height:100%;width:0%;background:var(--accent);transition:width .15s ease}.progressText{font-size:12px;color:#b9c7d6;margin-top:6px}.bandRow{display:flex;align-items:center;gap:8px;justify-content:space-between;border-bottom:1px solid #253040;padding:5px 0}.bandName{display:flex;align-items:center;gap:7px}.swatch{display:inline-block;width:16px;height:8px;border-radius:1px;flex:0 0 auto}
+
+.tabbar{display:flex;gap:8px;padding:8px 8px 0;background:#000;border-bottom:1px solid rgba(255,255,255,.08);position:relative;z-index:3}
+.tabbtn{width:auto;padding:8px 12px;margin:0;border:1px solid #344050;border-bottom:0;border-radius:8px 8px 0 0;background:#0c1118;color:#b9c7d6;font-weight:800}
+.tabbtn.active{background:#162235;color:#fff}
+.tabpane{height:calc(100% - 42px);display:block;position:absolute;left:0;right:0;top:42px;bottom:0;visibility:hidden;pointer-events:none;z-index:1}
+.tabpane.active{visibility:visible;pointer-events:auto;z-index:2}
+#chart,#cqmChart{width:100%;height:100%}
+.cqmWrap{height:100%;padding:12px;background:#162033;overflow:hidden}
+.cqmHead{padding:4px 10px 8px}
+.cqmHead h2{font-size:21px;margin:0 0 6px;color:#fff}
+.cqmHead .desc{font-size:13px;color:#c7d5e8;font-style:italic;line-height:1.45}
+.cqmBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cqmBadge{font-size:12px;border-radius:999px;padding:4px 9px;border:1px solid currentColor;background:rgba(0,0,0,.15)}
+.cqmBadge.buy{color:#24e572}.cqmBadge.acc{color:#b7ff2a}.cqmBadge.trim{color:#ffb000}.cqmBadge.sell{color:#ff5656}
+.cqmPlotBox{height:calc(100% - 105px);min-height:430px}
+
 </style>
 </head>
 <body>
@@ -64,7 +80,28 @@ input,select{width:100%;padding:8px;background:#05080d;border:1px solid #344050;
 </div>
 
 </aside>
-<main class="chartbox"><div id="chart"></div></main>
+<main class="chartbox">
+  <div class="tabbar">
+    <button id="eqmTabBtn" class="tabbtn active" type="button">EQM Rainbow</button>
+    <button id="cqmTabBtn" class="tabbtn" type="button">CQM Risk</button>
+  </div>
+  <div id="eqmPane" class="tabpane active"><div id="chart"></div></div>
+  <div id="cqmPane" class="tabpane">
+    <div class="cqmWrap">
+      <div class="cqmHead">
+        <h2>CQM Risk</h2>
+        <div class="desc">CQM Risk maps log(price / QR 50% fair value) through the full-sample empirical residual distribution, with cycle-aware γ and upper-percentile knots.</div>
+        <div class="cqmBadges">
+          <span class="cqmBadge buy">0–25% Buy zone</span>
+          <span class="cqmBadge acc">25–50% Accumulate</span>
+          <span class="cqmBadge trim">50–75% Trim</span>
+          <span class="cqmBadge sell">75–100% Sell zone</span>
+        </div>
+      </div>
+      <div class="cqmPlotBox"><div id="cqmChart"></div></div>
+    </div>
+  </div>
+</main>
 </div>
 
 <script>
@@ -90,6 +127,7 @@ function cycleBasisFromTime(ms){
   return [bull,bear];
 }
 let modelState = null;
+let cqmRenderedModel = null;
 function setProgress(p,msg){
   const bar=document.getElementById("progressBar");
   const txt=document.getElementById("progressText");
@@ -472,8 +510,226 @@ function bandForRisk(r){
   if(r<10)return "1-10% · Fire sale"; if(r<20)return "10-20% · Accumulate"; if(r<30)return "20-30% · Cheap"; if(r<40)return "30-40% · Value"; if(r<50)return "40-50% · Below mid";
   if(r<60)return "50-60% · Above mid"; if(r<70)return "60-70% · Warm"; if(r<80)return "70-80% · Hot"; if(r<90)return "80-90% · FOMO"; return "90-99% · Bubble";
 }
+
+function empiricalCdf(sortedVals, x){
+  if(!sortedVals.length || !isFinite(x)) return NaN;
+  let lo=0, hi=sortedVals.length;
+  while(lo<hi){
+    const m=(lo+hi)>>1;
+    if(sortedVals[m] <= x) lo=m+1; else hi=m;
+  }
+  return 100*lo/sortedVals.length;
+}
+function cqmColor(r){
+  if(r < 25) return "#22c55e";
+  if(r < 50) return "#95d81d";
+  if(r < 75) return "#f59e0b";
+  return "#ff4444";
+}
+function riskSegmentTraces(dates, risk){
+  // Fast fluid renderer:
+  // Use only four traces, but split each line segment exactly at 25/50/75
+  // threshold crossings. This keeps the line visually continuous while avoiding
+  // thousands of tiny Plotly traces, which caused the CQM tab click delay.
+  const zones=[
+    {name:"0–25% Buy zone", lo:0, hi:25, color:"#22c55e"},
+    {name:"25–50% Accumulate", lo:25, hi:50, color:"#95d81d"},
+    {name:"50–75% Trim", lo:50, hi:75, color:"#f59e0b"},
+    {name:"75–100% Sell zone", lo:75, hi:100.0001, color:"#ff4444"}
+  ];
+  const traces=zones.map(z=>({
+    x:[],
+    y:[],
+    mode:"lines",
+    name:z.name,
+    line:{color:z.color,width:3.2},
+    yaxis:"y2",
+    connectgaps:false,
+    hovertemplate:"%{x}<br>CQM Risk: %{y:.1f}%<extra></extra>",
+    showlegend:false
+  }));
+
+  function zoneIndex(v){
+    if(v < 25) return 0;
+    if(v < 50) return 1;
+    if(v < 75) return 2;
+    return 3;
+  }
+  function interpDate(t0,t1,a){
+    return new Date(t0 + (t1-t0)*a).toISOString().slice(0,10);
+  }
+
+  for(let i=1;i<dates.length;i++){
+    const r0=risk[i-1], r1=risk[i];
+    if(!isFinite(r0) || !isFinite(r1)) continue;
+    const t0=Date.parse(dates[i-1]), t1=Date.parse(dates[i]);
+    if(!isFinite(t0) || !isFinite(t1)) continue;
+
+    const cuts=[0,1];
+    for(const th of [25,50,75]){
+      if((r0<th && r1>th) || (r0>th && r1<th)){
+        const a=(th-r0)/(r1-r0);
+        if(a>0 && a<1) cuts.push(a);
+      }
+    }
+    cuts.sort((a,b)=>a-b);
+
+    for(let c=0;c<cuts.length-1;c++){
+      const a=cuts[c], b=cuts[c+1];
+      if(b<=a) continue;
+      const ya=r0+(r1-r0)*a;
+      const yb=r0+(r1-r0)*b;
+      const mid=(ya+yb)/2;
+      const zi=zoneIndex(mid);
+      const tr=traces[zi];
+
+      // Null separator avoids accidental joins across separate zone intervals.
+      // Endpoints are duplicated at exact crossings, so the visible line stays fluid.
+      if(tr.x.length){ tr.x.push(null); tr.y.push(null); }
+      tr.x.push(interpDate(t0,t1,a), interpDate(t0,t1,b));
+      tr.y.push(ya, yb);
+    }
+  }
+  return traces;
+}
+function eqmRiskAtIndex(model, idx){
+  const price=model.data[idx]?.close;
+  const b=model.bands;
+  const levels=[
+    b["0.01"]?.[idx], b["0.1"]?.[idx], b["0.2"]?.[idx], b["0.3"]?.[idx],
+    b["0.4"]?.[idx], b["0.5"]?.[idx], b["0.6"]?.[idx], b["0.7"]?.[idx],
+    b["0.8"]?.[idx], b["0.9"]?.[idx], b["0.99"]?.[idx]
+  ];
+  const riskMarks=[1,10,20,30,40,50,60,70,80,90,99];
+  if(!isFinite(price) || price<=0 || levels.some(v=>!isFinite(v)||v<=0)) return NaN;
+  if(price < levels[0]) return 1;
+  if(price > levels[levels.length-1]) return 99;
+  const lp=Math.log(price);
+  for(let i=0;i<levels.length-1;i++){
+    if(price>=levels[i] && price<=levels[i+1]){
+      const lo=Math.log(levels[i]), hi=Math.log(levels[i+1]);
+      const f=(lp-lo)/(hi-lo || 1e-12);
+      return clamp(riskMarks[i] + f*(riskMarks[i+1]-riskMarks[i]), 1, 99);
+    }
+  }
+  return 50;
+}
+function computeCqmSeries(model){
+  // CQM is supplementary, but it should be coherent with the active EQM surface.
+  // Instead of ranking log(price / fair value) against one full-sample static
+  // distribution, map each point through the same time-varying EQM quantile
+  // surface used by the main rainbow. This keeps CQM consistent with the
+  // calculated EQM band state and avoids false "absolute bottom" readings when
+  // the EQM model says Accumulate rather than Fire Sale.
+  const n=model.data.length;
+  const risk=[];
+  for(let i=0;i<n;i++) risk.push(eqmRiskAtIndex(model,i));
+  return risk.map(v=>clamp(v,0,100));
+}
+
+function renderCqm(model){
+  if(!model) return;
+  const cqmEl=document.getElementById("cqmChart");
+  if(cqmRenderedModel===model && cqmEl && cqmEl.data){
+    Plotly.Plots.resize(cqmEl);
+    return;
+  }
+  const dates=model.data.map(d=>isoDayUTC(d.t));
+  const hoverDates=model.data.map(d=>hoverDate(d.t));
+  const prices=model.data.map(d=>d.close);
+  const risk=computeCqmSeries(model);
+  const traces=[
+    {
+      x:dates,
+      y:prices,
+      mode:"lines",
+      name:"BTC price",
+      line:{color:"rgba(210,214,222,.55)",width:1.4},
+      yaxis:"y",
+      customdata:hoverDates,
+      hovertemplate:"%{customdata}<br>BTC price: %{y:$,.0f}<extra></extra>",
+      showlegend:false
+    },
+    ...riskSegmentTraces(dates,risk)
+  ];
+  const layout={
+    paper_bgcolor:"#162033",
+    plot_bgcolor:"#162033",
+    font:{color:"#dbeafe"},
+    margin:{l:70,r:60,t:20,b:45},
+    hovermode:"closest",
+    xaxis:{
+      gridcolor:"rgba(34,90,140,.35)",
+      tickfont:{color:"#b7d4f5"},
+      rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}
+    },
+    yaxis:{
+      type:"log",
+      title:"",
+      tickprefix:"$",
+      tickformat:"~s",
+      gridcolor:"rgba(34,90,140,.30)",
+      tickfont:{color:"#9bd1ff"},
+      zeroline:false
+    },
+    yaxis2:{
+      overlaying:"y",
+      side:"right",
+      range:[0,100],
+      tickvals:[0,25,50,75,100],
+      ticktext:["0%","25%","50%","75%","100%"],
+      tickfont:{color:"#b7d4f5"},
+      gridcolor:"rgba(16,77,102,.22)",
+      zeroline:false
+    },
+    shapes:[
+      {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:0,y1:25,fillcolor:"rgba(15,94,72,.32)",line:{width:0},layer:"below"},
+      {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:25,y1:50,fillcolor:"rgba(43,113,63,.30)",line:{width:0},layer:"below"},
+      {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:50,y1:75,fillcolor:"rgba(117,92,40,.28)",line:{width:0},layer:"below"},
+      {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:75,y1:100,fillcolor:"rgba(137,44,58,.34)",line:{width:0},layer:"below"},
+      {type:"line",xref:"paper",x0:0,x1:1,yref:"y2",y0:50,y1:50,line:{color:"rgba(180,220,220,.9)",width:1,dash:"dash"},layer:"above"}
+    ],
+    showlegend:false
+  };
+  Plotly.newPlot("cqmChart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{ cqmRenderedModel=model; });
+}
+function setActiveTab(which){
+  const isCqm=which==="cqm";
+  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isCqm);
+  document.getElementById("cqmTabBtn")?.classList.toggle("active",isCqm);
+  document.getElementById("eqmPane")?.classList.toggle("active",!isCqm);
+  document.getElementById("cqmPane")?.classList.toggle("active",isCqm);
+  if(isCqm && modelState){
+    const cqmEl=document.getElementById("cqmChart");
+    if(cqmRenderedModel===modelState && cqmEl && cqmEl.data){
+      requestAnimationFrame(()=>Plotly.Plots.resize(cqmEl));
+    }else{
+      requestAnimationFrame(()=>renderCqm(modelState));
+    }
+  }else{
+    const chart=document.getElementById("chart");
+    if(chart && chart.data) requestAnimationFrame(()=>Plotly.Plots.resize(chart));
+  }
+}
+
+
+function scheduleCqmPrewarm(model){
+  if(!model) return;
+  const run=()=>{
+    if(cqmRenderedModel!==model){
+      renderCqm(model);
+    }
+  };
+  if("requestIdleCallback" in window){
+    requestIdleCallback(run,{timeout:1200});
+  }else{
+    setTimeout(run,250);
+  }
+}
+
 function render(model){
   modelState=model;
+  cqmRenderedModel=null;
   const dates=model.data.map(d=>isoDayUTC(d.t)), hoverDates=model.data.map(d=>hoverDate(d.t)), price=model.data.map(d=>d.close), b=model.bands, n=price.length-1;
   const traces=[];
   function line(name,y,color,width=1,show=true,hover=true){
@@ -544,7 +800,10 @@ function render(model){
     shapes:[],annotations:[]
   };
   layout.showlegend=document.getElementById("legendToggle")?.checked ?? true;
-  Plotly.newPlot("chart",traces,layout,{responsive:true,displaylogo:false});
+  Plotly.newPlot("chart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{
+    scheduleCqmPrewarm(model);
+    if(document.getElementById("cqmPane")?.classList.contains("active")) renderCqm(model);
+  });
   updatePanels();
 }
 function updatePanels(){
@@ -600,6 +859,9 @@ function updateDca(){
   document.getElementById("btcDay").textContent=isFinite(btc)?btc.toFixed(8)+" BTC":"—";
 }
 for(const id of ["cashReserveInput","dcaDaysInput"]) document.addEventListener("input",e=>{if(e.target.id===id) updateDca();});
+
+document.getElementById("eqmTabBtn").addEventListener("click",()=>setActiveTab("eqm"));
+document.getElementById("cqmTabBtn").addEventListener("click",()=>setActiveTab("cqm"));
 
 document.getElementById("legendToggle").addEventListener("change",e=>{
   const chart=document.getElementById("chart");
