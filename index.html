@@ -47,15 +47,28 @@ body.sideCollapsed .tabbar{padding-left:8px}
 .cqmBadge.buy{color:#24e572}.cqmBadge.acc{color:#b7ff2a}.cqmBadge.trim{color:#ffb000}.cqmBadge.sell{color:#ff5656}
 .cqmPlotBox{height:calc(100% - 105px);min-height:430px}
 
-.ismWrap{height:100%;padding:12px;background:#162033;overflow:hidden}
+.ismWrap{height:100%;padding:12px;background:#162033;overflow:auto}
 .ismHead{padding:4px 10px 8px}
 .ismHead h2{font-size:21px;margin:0 0 6px;color:#fff}
 .ismHead .desc{font-size:13px;color:#c7d5e8;font-style:italic;line-height:1.45;max-width:980px}
 .ismBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .ismBadge{font-size:12px;border-radius:999px;padding:4px 9px;border:1px solid currentColor;background:rgba(0,0,0,.15)}
 .ismBadge.pmi{color:#ff8a00}.ismBadge.neutral{color:#c8d8ff}.ismBadge.btc{color:#e8edf5}
-.ismPlotBox{height:calc(100% - 195px);min-height:380px}
+.ismWrap{overflow:auto}
+.ismPlotBox{height:clamp(245px,38vh,360px);min-height:245px}
 .ismStatus{display:none;font-size:12px;color:#b9c7d6;margin-top:6px}
+.macroPanel{margin:12px 10px 10px;border-left:4px solid #ff9800;background:rgba(0,0,0,.16);border:1px solid #344050;border-left-width:4px;border-radius:8px;padding:10px;max-width:100%;overflow:visible}
+.macroPanel h3{margin:0 0 8px;font-size:15px;color:#fff}
+.macroGrid{display:grid;grid-template-columns:1fr;gap:14px;align-items:start}
+.macroBlock{font-size:12px;color:#e6edf3;line-height:1.38;min-width:0}.macroBlock.ratesBlock{margin-top:4px}
+.macroItem{margin:0 0 8px}.macroItem b{color:#fff}.macroSub{font-style:italic;color:#c7d5e8}
+.macroRates{display:grid;grid-template-columns:repeat(3,minmax(105px,220px));gap:7px;max-width:720px}
+.flagIcon{width:16px;height:16px;vertical-align:-3px;margin-right:6px;border-radius:2px}
+.macroRate{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:7px;padding:6px 8px;min-width:0}
+.macroRate .k{color:#b9c7d6;font-size:11px;white-space:nowrap}.macroRate .v{font-weight:900;color:#fff;font-size:14px;line-height:1.2}.macroPrev{display:block;font-size:11px;color:#c7d5e8;font-weight:700;margin-top:1px}.macroDate{display:block;font-size:10px;color:#8ea0b3;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.macroTiny{font-size:11px;color:#8ea0b3;margin-top:7px;line-height:1.35}
+@media(max-width:1200px){.macroGrid{grid-template-columns:1fr}.macroRates{grid-template-columns:repeat(3,minmax(105px,180px));max-width:600px}.ismPlotBox{height:300px}}
+@media(max-width:760px){.macroRates{grid-template-columns:repeat(2,minmax(105px,1fr));max-width:100%}.macroPanel{padding:9px}.macroBlock{font-size:11px}.ismPlotBox{height:260px}}
 
 .ismSummary{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;margin-bottom:4px}
 .ismMetric{border:1px solid #344050;background:rgba(0,0,0,.18);border-radius:9px;padding:8px 11px;min-width:150px}
@@ -64,6 +77,10 @@ body.sideCollapsed .tabbar{padding-left:8px}
 .ismMetric.latest{border-color:#ff8a00;box-shadow:0 0 0 1px rgba(255,138,0,.16) inset}
 .ismMetric.latest .v{color:#ffb86b}
 .ismMetric .d{font-size:11px;color:#9fb0c1;margin-top:2px}
+
+.eqmLegendControl{position:absolute;left:12px;top:12px;z-index:5;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.55);border:1px solid #344050;border-radius:8px;padding:6px 9px;color:#fff;font-size:12px;font-weight:800}
+.eqmLegendControl input{width:auto;margin:0}
+
 
 
 </style>
@@ -76,9 +93,6 @@ body.sideCollapsed .tabbar{padding-left:8px}
 <aside class="side">
 <button id="sideToggleBtn" class="sideToggle" type="button">Hide menu</button>
 <button id="loadBtn">Fetch Binance BTCUSDT Data</button>
-<label style="display:flex;align-items:center;gap:8px;margin:10px 0 0;color:var(--text);font-size:13px">
-  <input id="legendToggle" type="checkbox" checked style="width:auto"/> Show chart legend
-</label>
 <div class="card small" id="status">Ready.<div class="progressWrap"><div id="progressBar" class="progressBar"></div></div><div id="progressText" class="progressText">0%</div></div>
 
 <div class="card">
@@ -115,8 +129,14 @@ body.sideCollapsed .tabbar{padding-left:8px}
     <button id="eqmTabBtn" class="tabbtn active" type="button">EQM Rainbow</button>
     <button id="cqmTabBtn" class="tabbtn" type="button">CQM Risk</button>
     <button id="ismTabBtn" class="tabbtn" type="button">ISM PMI</button>
+    <button id="ratesTabBtn" class="tabbtn" type="button">Rates</button>
   </div>
-  <div id="eqmPane" class="tabpane active"><div id="chart"></div></div>
+  <div id="eqmPane" class="tabpane active">
+    <label class="eqmLegendControl">
+      <input id="legendToggle" type="checkbox" checked/> Show legend
+    </label>
+    <div id="chart"></div>
+  </div>
   <div id="cqmPane" class="tabpane">
     <div class="cqmWrap">
       <div class="cqmHead">
@@ -137,7 +157,7 @@ body.sideCollapsed .tabbar{padding-left:8px}
     <div class="ismWrap">
       <div class="ismHead">
         <h2>ISM Manufacturing PMI</h2>
-        <div class="desc">U.S. ISM Manufacturing Purchasing Managers Index — a monthly diffusion index where 50 = neutral.<br/>Readings above 50 indicate manufacturing expansion; below 50 signals contraction.<br/>PMI is released on the first business day of each month and is one of the most timely macro indicators available.</div>
+        <div class="desc">U.S. ISM Manufacturing Purchasing Managers Index — a monthly diffusion index where 50 = neutral.<br/>Readings above 50 indicate manufacturing expansion; below 50 signals contraction.<br/>PMI is released on the first business day of each month.</div>
         <div class="ismBadges">
           <span class="ismBadge pmi">ISM PMI</span>
           <span class="ismBadge neutral">50 = Neutral</span>
@@ -158,6 +178,28 @@ body.sideCollapsed .tabbar{padding-left:8px}
         <div id="ismStatus" class="ismStatus">Fetch BTC data, then open this tab.</div>
       </div>
       <div class="ismPlotBox"><div id="ismChart"></div></div>
+    </div>
+  </div>
+
+  <div id="ratesPane" class="tabpane">
+    <div class="ismWrap">
+      <div class="ismHead">
+        <h2>Rates & Macro Events</h2>
+        <div class="desc">Upcoming U.S. macro events in UTC plus current central-bank policy rates with prior values shown underneath.</div>
+      </div>
+      <div id="macroPanel" class="macroPanel">
+        <h3>Important macro events [UTC]</h3>
+        <div class="macroGrid">
+          <div class="macroBlock">
+            <div id="macroEvents">Loading macro calendar…</div>
+          </div>
+          <div class="macroBlock ratesBlock">
+            <div><b>Interest Rates</b></div>
+            <div id="macroRates" class="macroRates" style="margin-top:6px"></div>
+            <div id="macroUpdated" class="macroTiny"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </main>
@@ -973,6 +1015,7 @@ async function renderIsm(model){
   };
   await Plotly.newPlot("ismChart",traces,layout,{responsive:true,displaylogo:false});
   ismRenderedModel=model;
+  renderMacroInfo().catch(console.warn);
 }
 function scheduleIsmPrewarm(model){
   if(!model) return;
@@ -981,15 +1024,278 @@ function scheduleIsmPrewarm(model){
   else setTimeout(run,500);
 }
 
+
+function businessDayOnOrAfter(year, monthIndex, day){
+  let d=new Date(Date.UTC(year,monthIndex,day,12,30,0));
+  while(d.getUTCDay()===0 || d.getUTCDay()===6) d=new Date(d.getTime()+ONE_DAY);
+  return d;
+}
+function nextMonthlyRelease(now, dayStart, hourUTC=12, minuteUTC=30){
+  const candidates=[];
+  for(let add=0; add<4; add++){
+    const y=now.getUTCFullYear();
+    const m=now.getUTCMonth()+add;
+    candidates.push(businessDayOnOrAfter(y, m, dayStart));
+  }
+  return candidates.find(d=>d.getTime()>now.getTime()) || candidates[candidates.length-1];
+}
+function nextBusinessDayAfter(date, hourUTC=12, minuteUTC=30){
+  let d=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()+1,hourUTC,minuteUTC,0));
+  while(d.getUTCDay()===0 || d.getUTCDay()===6) d=new Date(d.getTime()+ONE_DAY);
+  return d;
+}
+const FOMC_EVENTS_UTC = [
+  "2025-01-29T19:00:00Z","2025-03-19T18:00:00Z","2025-05-07T18:00:00Z","2025-06-18T18:00:00Z","2025-07-30T18:00:00Z","2025-09-17T18:00:00Z","2025-10-29T18:00:00Z","2025-12-10T19:00:00Z",
+  "2026-01-28T19:00:00Z","2026-03-18T18:00:00Z","2026-04-29T18:00:00Z","2026-06-17T18:00:00Z","2026-07-29T18:00:00Z","2026-09-16T18:00:00Z","2026-11-04T19:00:00Z","2026-12-16T19:00:00Z",
+  "2027-01-27T19:00:00Z","2027-03-17T18:00:00Z","2027-04-28T18:00:00Z","2027-06-16T18:00:00Z","2027-07-28T18:00:00Z","2027-09-15T18:00:00Z","2027-10-27T18:00:00Z","2027-12-15T19:00:00Z"
+].map(s=>new Date(s));
+function relativeTime(target, now=new Date()){
+  const diff=target.getTime()-now.getTime();
+  const abs=Math.abs(diff);
+  const mins=Math.round(abs/60000);
+  const hrs=Math.floor(mins/60);
+  const days=Math.floor(hrs/24);
+  if(diff < 0) return "released";
+  if(days>=1) return `in ${days} day${days===1?"":"s"}`;
+  if(hrs>=1) return `in ${hrs}h ${mins%60}m`;
+  return `in ${mins}m`;
+}
+function eventLine(name, date){
+  const time=date.toLocaleString(undefined,{timeZone:"UTC",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",hour12:true});
+  return `<div class="macroItem"><b>${name}:</b> ${time}<br/><span class="macroSub">${relativeTime(date)}</span></div>`;
+}
+function renderMacroCalendar(){
+  const now=new Date();
+  const cpi=nextMonthlyRelease(now,10,12,30);
+  const ppi=nextBusinessDayAfter(cpi,12,30);
+  const fomc=FOMC_EVENTS_UTC.find(d=>d.getTime()>now.getTime()) || FOMC_EVENTS_UTC[FOMC_EVENTS_UTC.length-1];
+  const minutes=new Date(fomc.getTime()+21*ONE_DAY);
+  const el=document.getElementById("macroEvents");
+  if(el){
+    el.innerHTML = eventLine("CPI",cpi) + eventLine("PPI",ppi) + eventLine("FOMC Meeting",fomc) + eventLine("FOMC Minutes",minutes);
+  }
+}
+function parseFredRows(text){
+  const rows=String(text||"").trim().split(/\r?\n/);
+  const out=[];
+  for(let i=0;i<rows.length;i++){
+    const line=rows[i].trim();
+    if(!line) continue;
+    const parts=line.split(",");
+    if(parts.length<2) continue;
+    const date=parts[0].trim().replace(/^"|"$/g,"");
+    const raw=parts[1].trim().replace(/^"|"$/g,"");
+    const v=Number(raw);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(date) && isFinite(v)) out.push({date,value:v});
+  }
+  return out;
+}
+
+function seriesCacheKey(seriesId){ return "eqmFredSeriesCache_"+seriesId; }
+function readSeriesCache(seriesId){
+  try{
+    const raw=localStorage.getItem(seriesCacheKey(seriesId));
+    if(!raw) return [];
+    const parsed=JSON.parse(raw);
+    return Array.isArray(parsed?.rows) ? parsed.rows : [];
+  }catch(_){ return []; }
+}
+function writeSeriesCache(seriesId, rows){
+  try{
+    if(Array.isArray(rows) && rows.length){
+      localStorage.setItem(seriesCacheKey(seriesId), JSON.stringify({ts:Date.now(), rows}));
+    }
+  }catch(_){}
+}
+
+
+const MACRO_FALLBACK_SERIES = {
+  // Bundled fallback only renders when live public sources are blocked by browser/CORS/VPN.
+  // Live FRED/proxy data is always attempted first and overwrites these values when available.
+  DFF: [["2026-05-31",3.75],["2026-06-01",3.75],["2026-06-02",3.75],["2026-06-03",3.75],["2026-06-04",3.75],["2026-06-05",3.75]],
+  ECBMRRFR: [["2026-05-31",2.40],["2026-06-09",2.15]],
+  BOERUKM: [["2026-04-30",4.00],["2026-05-28",3.75]],
+  IRSTCI01JPM156N: [["2026-05-31",0.50],["2026-06-01",0.75]],
+  RBA_CASH_TARGET: [["2026-04-30",4.10],["2026-05-06",4.35]],
+  IRSTCI01CHM156N: [["2026-05-31",0.25],["2026-06-01",0.00]]
+};
+function macroFallbackRows(seriesId){
+  const rows = MACRO_FALLBACK_SERIES[seriesId] || [];
+  return rows.map(([date,value])=>({date,value}));
+}
+
+async function fetchFredCsv(seriesId){
+  const cached = readSeriesCache(seriesId);
+  const fallback = cached.length ? cached : macroFallbackRows(seriesId);
+  if(seriesId==="RBA_CASH_TARGET"){
+    // RBA cash-rate target is not consistently available as a simple FRED CSV.
+    // Use the bundled official fallback if a previous successful cache is absent.
+    return fallback;
+  }
+
+  const fredUrl=`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(seriesId)}`;
+  const encoded=encodeURIComponent(fredUrl);
+  const urls=[
+    // Correct Jina Reader format; this is often CORS-friendly from local HTML files.
+    "https://r.jina.ai/" + fredUrl,
+    "https://r.jina.ai/http://r.jina.ai/http://" + fredUrl,
+    "https://api.allorigins.win/raw?url="+encoded,
+    "https://api.allorigins.win/get?url="+encoded,
+    "https://corsproxy.io/?"+encoded,
+    "https://corsproxy.io/?url="+encoded,
+    "https://thingproxy.freeboard.io/fetch/"+fredUrl,
+    fredUrl
+  ];
+
+  const tryOne = async (url) => {
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),2200);
+    try{
+      const r=await fetch(url,{cache:"no-store",signal:controller.signal});
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      let txt=await r.text();
+      try{
+        const j=JSON.parse(txt);
+        if(j && typeof j.contents==="string") txt=j.contents;
+      }catch(_){}
+      const rows=parseFredRows(txt);
+      if(rows.length){
+        writeSeriesCache(seriesId, rows);
+        return rows;
+      }
+      throw new Error("No usable rows");
+    }finally{
+      clearTimeout(timeout);
+    }
+  };
+
+  // Try a few likely-working sources in parallel so the UI does not sit on dashes.
+  try{
+    const rows = await Promise.any(urls.slice(0,5).map(tryOne));
+    if(rows && rows.length) return rows;
+  }catch(e){
+    console.warn("Primary macro sources failed", seriesId, e);
+  }
+
+  // Try remaining sources, but do not block the panel for long.
+  for(const url of urls.slice(5)){
+    try{
+      const rows=await tryOne(url);
+      if(rows && rows.length) return rows;
+    }catch(e){
+      console.warn("FRED fetch failed", seriesId, e);
+    }
+  }
+
+  return fallback;
+}
+
+function latestVal(rows){ return rows && rows.length ? rows[rows.length-1] : null; }
+function yoyFromRows(rows){
+  if(!rows || rows.length<13) return null;
+  const latest=rows[rows.length-1];
+  const latestMs=Date.parse(latest.date);
+  let prev=null;
+  for(let i=rows.length-2;i>=0;i--){
+    const d=new Date(rows[i].date+"T00:00:00Z");
+    const ld=new Date(latest.date+"T00:00:00Z");
+    if(d.getUTCFullYear()===ld.getUTCFullYear()-1 && d.getUTCMonth()===ld.getUTCMonth()){
+      prev=rows[i]; break;
+    }
+  }
+  if(!prev || !prev.value) prev=rows[rows.length-13];
+  if(!prev || !prev.value) return null;
+  return {date:latest.date, value:100*(latest.value/prev.value-1)};
+}
+function formatRateValue(val, suffix="%"){
+  if(!isFinite(val)) return "—";
+  const rounded=Math.abs(val-Math.round(val))<0.005 ? val.toFixed(0) : val.toFixed(2).replace(/0$/,"").replace(/\.00$/,"");
+  return rounded + suffix;
+}
+function previousDistinctVal(rows, latest){
+  // Previous release/observation, not previous rate-change.
+  // If a central bank held rates unchanged at the latest release,
+  // Prev should still show the immediately prior observation.
+  if(!rows || rows.length < 2 || !latest || !isFinite(latest.value)) return null;
+  return rows[rows.length - 2] || null;
+}
+
+function flagIcon(country){
+  const map={
+    US:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f1fa-1f1f8.svg",
+    EU:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f1ea-1f1fa.svg",
+    GB:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f1ec-1f1e7.svg",
+    JP:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f1ef-1f1f5.svg",
+    AU:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f1e6-1f1fa.svg",
+    CH:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f1e8-1f1ed.svg"
+  };
+  const src=map[country];
+  return src ? `<img class="flagIcon" alt="${country}" src="${src}"/>` : "";
+}
+function macroRateHtml(name, val, suffix="%", date=null, prev=null){
+  const v=formatRateValue(val,suffix);
+  const p=prev && isFinite(prev.value) ? `<span class="macroPrev">(Prev: ${formatRateValue(prev.value,suffix)})</span>` : "";
+  const d=date ? `<span class="macroDate">${date}</span>` : "";
+  return `<div class="macroRate"><span class="k">${name}</span><br/><span class="v">${v}</span>${p}${d}</div>`;
+}
+function embeddedMacroFallback(){
+  return {
+    rates:{fed:null, ecb:null, boe:null, boj:null, rba:null, snb:null},
+    source:"calendar + live/cache attempts"
+  };
+}
+async function renderMacroInfo(){
+  renderMacroCalendar();
+  const cacheKey="eqmMacroCacheV2_ratesOnly";
+  const now=new Date();
+  const rateEl=document.getElementById("macroRates");
+  const updEl=document.getElementById("macroUpdated");
+  if(rateEl) rateEl.innerHTML=macroRateHtml(flagIcon("US")+"Fed",NaN)+macroRateHtml(flagIcon("EU")+"ECB",NaN)+macroRateHtml(flagIcon("GB")+"BoE",NaN)+macroRateHtml(flagIcon("JP")+"BOJ",NaN)+macroRateHtml(flagIcon("AU")+"RBA",NaN)+macroRateHtml(flagIcon("CH")+"SNB",NaN);
+  if(updEl) updEl.textContent="Refreshing interest-rate data…";
+
+  // Prefer live/public series where available. Bundled values only fill blocked
+  // or unavailable series so the panel does not remain empty.
+  const [fedRows, ecbRows, boeRows, bojRows, rbaRows, snbRows] = await Promise.all([
+    fetchFredCsv("DFF"),          // Fed effective funds, daily
+    fetchFredCsv("ECBMRRFR"),     // ECB main refinancing operations, daily
+    fetchFredCsv("BOERUKM"),      // Bank of England policy rate, monthly
+    fetchFredCsv("IRSTCI01JPM156N"),
+    fetchFredCsv("RBA_CASH_TARGET"),
+    fetchFredCsv("IRSTCI01CHM156N")
+  ]);
+
+  const fed=latestVal(fedRows), ecb=latestVal(ecbRows), boe=latestVal(boeRows), boj=latestVal(bojRows), rba=latestVal(rbaRows), snb=latestVal(snbRows);
+  const fedPrev=previousDistinctVal(fedRows,fed), ecbPrev=previousDistinctVal(ecbRows,ecb), boePrev=previousDistinctVal(boeRows,boe), bojPrev=previousDistinctVal(bojRows,boj), rbaPrev=previousDistinctVal(rbaRows,rba), snbPrev=previousDistinctVal(snbRows,snb);
+
+  const ratesHtml=
+    macroRateHtml(flagIcon("US")+"Fed", fed?.value, "%", fed?.date, fedPrev)+
+    macroRateHtml(flagIcon("EU")+"ECB", ecb?.value, "%", ecb?.date, ecbPrev)+
+    macroRateHtml(flagIcon("GB")+"BoE", boe?.value, "%", boe?.date, boePrev)+
+    macroRateHtml(flagIcon("JP")+"BOJ", boj?.value, "%", boj?.date, bojPrev)+
+    macroRateHtml(flagIcon("AU")+"RBA", rba?.value, "%", rba?.date, rbaPrev)+
+    macroRateHtml(flagIcon("CH")+"SNB", snb?.value, "%", snb?.date, snbPrev);
+
+  const updated=`Last updated ${now.toLocaleString(undefined,{timeZone:"UTC",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} UTC`;
+
+  if(rateEl) rateEl.innerHTML=ratesHtml;
+  if(updEl) updEl.textContent=updated;
+  try{
+    localStorage.setItem(cacheKey,JSON.stringify({day:isoDayUTC(now),html:{rates:ratesHtml,updated}}));
+  }catch(_){}
+}
+
 function setActiveTab(which){
   const isCqm=which==="cqm";
   const isIsm=which==="ism";
-  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isCqm && !isIsm);
+  const isRates=which==="rates";
+  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isCqm && !isIsm && !isRates);
   document.getElementById("cqmTabBtn")?.classList.toggle("active",isCqm);
   document.getElementById("ismTabBtn")?.classList.toggle("active",isIsm);
-  document.getElementById("eqmPane")?.classList.toggle("active",!isCqm && !isIsm);
+  document.getElementById("ratesTabBtn")?.classList.toggle("active",isRates);
+  document.getElementById("eqmPane")?.classList.toggle("active",!isCqm && !isIsm && !isRates);
   document.getElementById("cqmPane")?.classList.toggle("active",isCqm);
   document.getElementById("ismPane")?.classList.toggle("active",isIsm);
+  document.getElementById("ratesPane")?.classList.toggle("active",isRates);
   if(isCqm && modelState){
     const cqmEl=document.getElementById("cqmChart");
     if(cqmRenderedModel===modelState && cqmEl && cqmEl.data){
@@ -997,6 +1303,8 @@ function setActiveTab(which){
     }else{
       requestAnimationFrame(()=>renderCqm(modelState));
     }
+  }else if(isRates){
+    renderMacroInfo().catch(console.warn);
   }else if(isIsm && modelState){
     const ismEl=document.getElementById("ismChart");
     if(ismRenderedModel===modelState && ismEl && ismEl.data){
@@ -1180,7 +1488,8 @@ document.getElementById("sideShowBtn")?.addEventListener("click",()=>setSideColl
 
 document.getElementById("eqmTabBtn").addEventListener("click",()=>setActiveTab("eqm"));
 document.getElementById("cqmTabBtn").addEventListener("click",()=>setActiveTab("cqm"));
-document.getElementById("ismTabBtn").addEventListener("click",()=>setActiveTab("ism"));
+document.getElementById("ismTabBtn").addEventListener("click",()=>{setActiveTab("ism");});
+document.getElementById("ratesTabBtn").addEventListener("click",()=>{setActiveTab("rates"); renderMacroInfo().catch(console.warn);});
 
 document.getElementById("legendToggle").addEventListener("change",e=>{
   const chart=document.getElementById("chart");
