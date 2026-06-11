@@ -1577,6 +1577,7 @@ function runDcaBacktest(){
   let maxAlloc=0;
   let minAlloc=Infinity;
   const dates=[], portfolioSeries=[], btcValueSeries=[], cashSeries=[], deployedSeries=[], priceSeries=[], dailyBuySeries=[], dailyAudit=[];
+  const perDateAfterBuy=new Map();
 
   for(let k=0;k<rows.length;k++){
     const row=rows[k];
@@ -1620,6 +1621,7 @@ function runDcaBacktest(){
     priceSeries.push(row.price);
     dailyBuySeries.push(deploy);
     dailyAudit.push([risk,100*allocation,cashBefore,cash,remainingDays,totalDcaDays,targetDeployableToday,remainingTarget,dailyTarget]);
+    perDateAfterBuy.set(row.date,{portfolio:cash + btc*row.price, deployed, cash, dailyBuy:deploy, price:row.price});
   }
 
   const latest=model.data[model.data.length-1];
@@ -1668,12 +1670,39 @@ function runDcaBacktest(){
   setText("btDateRange",`${rows[0].date} to ${rows[rows.length-1].date}`);
   setText("backtestStatus","");
 
+  const allRows=backtestClosedRows(model);
+  const fixedChartStartMs=Date.UTC(2018,0,1);
+  let chartRows=allRows.filter(row=>row.ms>=fixedChartStartMs);
+  if(!chartRows.length) chartRows=allRows;
+  const chartDates=[], portfolioPlot=[], deployedPlot=[], cashPlot=[], dailyBuyPlot=[], btcClosePlot=[];
+  for(const row of chartRows){
+    chartDates.push(row.date);
+    btcClosePlot.push(row.price);
+    const during=perDateAfterBuy.get(row.date);
+    if(during){
+      portfolioPlot.push(during.portfolio);
+      deployedPlot.push(during.deployed);
+      cashPlot.push(during.cash);
+      dailyBuyPlot.push(during.dailyBuy);
+    }else if(row.ms > endMs){
+      portfolioPlot.push(cash + btc*row.price);
+      deployedPlot.push(deployed);
+      cashPlot.push(cash);
+      dailyBuyPlot.push(null);
+    }else{
+      portfolioPlot.push(null);
+      deployedPlot.push(null);
+      cashPlot.push(null);
+      dailyBuyPlot.push(null);
+    }
+  }
+
   const traces=[
-    {x:dates,y:portfolioSeries,type:"scatter",mode:"lines",name:"Portfolio value",line:{color:"#67e8a5",width:2.6},hovertemplate:"%{x}<br>Portfolio: %{y:$,.2f}<extra></extra>"},
-    {x:dates,y:deployedSeries,type:"scatter",mode:"lines",name:"Total deployed",line:{color:"#2f81f7",width:2},hovertemplate:"%{x}<br>Deployed: %{y:$,.2f}<extra></extra>"},
-    {x:dates,y:cashSeries,type:"scatter",mode:"lines",name:"Cash remaining",line:{color:"#c7d5e8",width:1.8},hovertemplate:"%{x}<br>Cash: %{y:$,.2f}<extra></extra>"},
-    {x:dates,y:dailyBuySeries,type:"bar",name:"Daily buy",marker:{color:"rgba(255,184,107,.36)"},customdata:dailyAudit,hovertemplate:"%{x}<br>Daily buy: %{y:$,.2f}<br>EQM Risk: %{customdata[0]:.2f}%<br>Allocation signal: %{customdata[1]:.2f}%<br>That day total deployable: %{customdata[6]:$,.2f}<br>Daily target buy: %{customdata[8]:$,.2f}<br>Unfilled target before buy: %{customdata[7]:$,.2f}<br>Cash before: %{customdata[2]:$,.2f}<br>Cash after: %{customdata[3]:$,.2f}<br>Remaining days: %{customdata[4]}<extra></extra>",yaxis:"y"},
-    {x:dates,y:priceSeries,type:"scatter",mode:"lines",name:"BTC close",line:{color:"rgba(255,255,255,.65)",width:1.4},hovertemplate:"%{x}<br>BTC close: %{y:$,.0f}<extra></extra>",yaxis:"y2"}
+    {x:chartDates,y:portfolioPlot,type:"scatter",mode:"lines",name:"Portfolio value",line:{color:"#67e8a5",width:2.6},connectgaps:false,hovertemplate:"Portfolio value: %{y:$,.2f}<extra></extra>"},
+    {x:chartDates,y:deployedPlot,type:"scatter",mode:"lines",name:"Total deployed",line:{color:"#2f81f7",width:2},connectgaps:false,hovertemplate:"Total deployed: %{y:$,.2f}<extra></extra>"},
+    {x:chartDates,y:cashPlot,type:"scatter",mode:"lines",name:"Remaining cash",line:{color:"#c7d5e8",width:1.8},connectgaps:false,hovertemplate:"Remaining cash: %{y:$,.2f}<extra></extra>"},
+    {x:chartDates,y:dailyBuyPlot,type:"bar",name:"Daily buy",marker:{color:"rgba(255,184,107,.36)"},hoverinfo:"skip",yaxis:"y"},
+    {x:chartDates,y:btcClosePlot,type:"scatter",mode:"lines",name:"BTC close",line:{color:"rgba(255,255,255,.65)",width:1.4},hovertemplate:"BTC close: %{y:$,.0f}<extra></extra>",yaxis:"y2"}
   ];
   const layout={
     paper_bgcolor:"#162033",
@@ -1682,13 +1711,13 @@ function runDcaBacktest(){
     margin:{l:70,r:90,t:20,b:48},
     hovermode:"x unified",
     barmode:"overlay",
-    xaxis:{gridcolor:"rgba(34,90,140,.35)",tickfont:{color:"#b7d4f5"},rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}},
+    xaxis:{range:["2018-01-01", chartRows.length ? chartRows[chartRows.length-1].date : rows[rows.length-1].date],gridcolor:"rgba(34,90,140,.35)",tickfont:{color:"#b7d4f5"},rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}},
     yaxis:{title:"USD",tickprefix:"$",tickformat:"~s",gridcolor:"rgba(34,90,140,.30)",tickfont:{color:"#9bd1ff"},zeroline:false},
     yaxis2:{type:"log",overlaying:"y",side:"right",tickprefix:"$",tickformat:"~s",gridcolor:"rgba(0,0,0,0)",tickfont:{color:"#e8edf5"},zeroline:false},
     legend:{orientation:"h",x:0,y:1.1,bgcolor:"rgba(0,0,0,0)",font:{color:"#fff",size:11}},
     showlegend:true
   };
-  const key=JSON.stringify([startStr,endStr,startingCash,model.data.length,latestPrice]);
+  const key=JSON.stringify([startStr,endStr,startingCash,model.data.length,latestPrice,"fixed-2018-chart-simple-hover"]);
   Plotly.newPlot("backtestChart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{ backtestRenderedKey=key; });
 }
 
