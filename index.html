@@ -42,9 +42,12 @@ body.sideCollapsed .tabbar{padding-left:8px}
 .cqmHead{padding:4px 10px 8px}
 .cqmHead h2{font-size:21px;margin:0 0 6px;color:#fff}
 .cqmHead .desc{font-size:13px;color:#c7d5e8;font-style:italic;line-height:1.45}
-.cqmBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.cqmBadge{font-size:12px;border-radius:999px;padding:4px 9px;border:1px solid currentColor;background:rgba(0,0,0,.15)}
-.cqmBadge.buy{color:#24e572}.cqmBadge.acc{color:#b7ff2a}.cqmBadge.trim{color:#ffb000}.cqmBadge.sell{color:#ff5656}
+.cqmBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-start}
+.cqmBadge{display:inline-flex;align-items:center;justify-content:center;font-size:12px;line-height:1.15;border-radius:999px;padding:4px 9px;border:1px solid currentColor;background:rgba(0,0,0,.15);white-space:nowrap;align-self:flex-start}
+.cqmBadge.buy{color:#24e572}.cqmBadge.acc{color:#b7ff2a}.cqmBadge.trim{color:#ffb000}.cqmBadge.sell{color:#ff5656}.cqmBadge.z{color:#e0f2fe}
+.cqmZToggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.cqmZToggle input{width:auto;margin:0;accent-color:#e0f2fe}
+.cqmBadgeStack{display:flex;flex-direction:column;gap:6px;align-items:flex-start;align-self:flex-start}
+.backtestLumpToggle{display:inline-flex;align-items:center;gap:7px;margin-top:9px;color:#dbeafe;font-size:12px;cursor:pointer}.backtestLumpToggle input{width:auto;margin:0;accent-color:#67e8a5}
 .cqmPlotBox{height:calc(100% - 105px);min-height:430px}
 
 .ismWrap{height:100%;padding:12px;background:#162033;overflow:auto}
@@ -133,6 +136,9 @@ body.sideCollapsed .tabbar{padding-left:8px}
   <div class="row"><span>0.1 rail</span><b id="mLowRail">—</b></div>
   <div class="row"><span>99.9 rail</span><b id="mHighRail">—</b></div>
   <div class="row"><span>EQM Risk</span><b id="mRisk">—</b></div>
+  <div class="row"><span>CQM Risk</span><b id="mCqmRisk">—</b></div>
+  <div class="row"><span>EQM Z-score</span><b id="mZScore">—</b></div>
+  <div class="row"><span>CQM Z-score</span><b id="mCqmZScore">—</b></div>
   <div class="row"><span>Current band</span><b id="mBand">—</b></div>
 </div>
 
@@ -146,7 +152,6 @@ body.sideCollapsed .tabbar{padding-left:8px}
   <div class="row"><span>Total deployable over period</span><b id="deployableOut">—</b></div>
   <div class="row"><span>Today's DCA amount</span><b id="dailyDca">—</b></div>
   <div class="row"><span>Approx BTC/day</span><b id="btcDay">—</b></div>
-  <div class="small">Formula: Cash reserve × max(0, 1 − 2 × EQM Risk) ÷ DCA period. Risk is decimal. Lower-risk zones deploy more; risk at/above 50% deploys $0.</div>
 </div>
 
 <div class="card">
@@ -177,10 +182,14 @@ body.sideCollapsed .tabbar{padding-left:8px}
         <h2>CQM Risk</h2>
         <div class="desc">CQM Risk is valuation risk, not DCA allocation. Low risk = cheaper / more buyable; high risk = expensive / less buyable.</div>
         <div class="cqmBadges">
-          <span class="cqmBadge buy">0–25% Buy zone</span>
+          <div class="cqmBadgeStack">
+            <span class="cqmBadge buy">0–25% Buy zone</span>
+            <label class="cqmBadge z cqmZToggle"><input id="cqmZToggle" type="checkbox" checked/> Show Z line</label>
+          </div>
           <span class="cqmBadge acc">25–50% Accumulate</span>
           <span class="cqmBadge trim">50–75% Trim</span>
           <span class="cqmBadge sell">75–100% Sell zone</span>
+          <span id="cqmZBadge" class="cqmBadge z">Z-score</span>
         </div>
       </div>
       <div class="cqmPlotBox"><div id="cqmChart"></div></div>
@@ -243,46 +252,30 @@ body.sideCollapsed .tabbar{padding-left:8px}
       </div>
       <div class="backtestGrid">
         <div class="backtestPanel">
-          <label>Quick range</label>
-          <div class="backtestQuickRanges" aria-label="Quick date ranges">
-            <button type="button" data-backtest-range="1">1D</button>
-            <button type="button" data-backtest-range="7">1W</button>
-            <button type="button" data-backtest-range="30">1M</button>
-            <button type="button" data-backtest-range="180">6M</button>
-            <button type="button" data-backtest-range="365">1Y</button>
-            <button type="button" data-backtest-range="730">2Y</button>
-            <button type="button" data-backtest-range="1460">4Y</button>
-            <button type="button" data-backtest-range="all">Full</button>
-          </div>
-
-          <div class="backtestDates">
+          <div class="backtestDates" style="grid-template-columns:1fr">
             <div class="backtestDateField">
-              <div class="backtestDateMeta"><label for="backtestStartInput">Start date</label></div>
-              <input id="backtestStartInput" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="YYYY-MM-DD"/>
-            </div>
-            <div class="backtestDateField">
-              <div class="backtestDateMeta"><label for="backtestEndInput">End date</label></div>
-              <input id="backtestEndInput" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="YYYY-MM-DD"/>
+              <div class="backtestDateMeta"><label for="backtestStartInput">Starting date</label></div>
+              <input id="backtestStartInput" type="text" inputmode="numeric" autocomplete="off" maxlength="10" value="2022-01-01" placeholder="YYYY-MM-DD"/>
             </div>
           </div>
 
-          <label>Total cash available, USD</label>
+          <label>Starting capital, USD</label>
           <input id="backtestCashInput" type="number" value="10000" min="0" step="100"/>
-          <div class="small" style="margin-top:8px;color:#b9c7d6">DCA is $0 when EQM Risk is at or above 50%.</div>
+          <label>DCA timeframe, days</label>
+          <input id="backtestDcaDaysInput" type="number" value="30" min="1" step="1"/>
           <div id="backtestStatus" class="small" style="margin-top:8px">Fetch BTC data first.</div>
+          <div id="backtestStrategyDecision" class="small" style="display:none"></div>
         </div>
         <div class="backtestResults">
           <div class="backtestMetric"><div class="k">Backtest days</div><div id="btDays" class="v">—</div><div id="btBuyDays" class="d">—</div></div>
-          <div class="backtestMetric"><div class="k">Total cash available</div><div id="btStartingCash" class="v">—</div><div class="d"></div></div>
-          <div class="backtestMetric"><div class="k">Total deployed</div><div id="btDeployed" class="v">—</div><div id="btDeployPct" class="d">—</div></div>
-          <div class="backtestMetric"><div class="k">Remaining cash</div><div id="btRemainingCash" class="v">—</div><div class="d"></div></div>
-          <div class="backtestMetric"><div class="k">BTC accumulated</div><div id="btBtc" class="v">—</div><div id="btAvgBuy" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Starting capital</div><div id="btStartingCash" class="v">—</div><div class="d"></div></div>
+          <div class="backtestMetric"><div class="k">Net BTC position</div><div id="btBtc" class="v">—</div><div id="btAvgBuy" class="d">—</div></div>
           <div class="backtestMetric"><div class="k">Current portfolio value</div><div id="btBtcValue" class="v">—</div><div id="btLatestPrice" class="d">BTC+Cash</div></div>
           <div class="backtestMetric"><div class="k">P/L</div><div id="btPnl" class="v">—</div><div id="btReturn" class="d">—</div></div>
           <div class="backtestMetric"><div class="k">Avg risk allocation</div><div id="btAvgAlloc" class="v">—</div><div id="btAvgRisk" class="d">—</div></div>
           <div class="backtestMetric"><div class="k">Lump sum value</div><div id="btLumpValue" class="v">—</div><div id="btLumpReturn" class="d">—</div></div>
           <div class="backtestMetric"><div class="k">Portfolio vs lump sum</div><div id="btVsLump" class="v">—</div><div id="btVsLumpPct" class="d">—</div></div>
-          <div class="backtestMetric"><div class="k">First / last close</div><div id="btCloseRange" class="v">—</div><div id="btDateRange" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Cash reserve</div><div id="btCloseRange" class="v">—</div><div id="btDateRange" class="d">Includes DCA sells</div></div>
         </div>
       </div>
       <div class="backtestPlotBox"><div id="backtestChart"></div></div>
@@ -819,10 +812,22 @@ function computeCqmSeries(model){
   for(let i=0;i<n;i++) risk.push(eqmRiskAtIndex(model,i));
   return risk.map(v=>clamp(v,0,100));
 }
+function cqmZScoreFromRisk(risk){
+  if(!isFinite(risk)) return NaN;
+  // Same reversed valuation rules as EQM Z-score:
+  // low CQM risk = positive buy-side Z, high CQM risk = negative sell-side Z.
+  return clamp(3*(50-risk)/50,-3,3);
+}
+function currentCqmZScore(){
+  if(!modelState) return NaN;
+  const risk=currentEqmRisk();
+  return cqmZScoreFromRisk(risk);
+}
 
 function renderCqm(model){
   if(!model) return;
   const cqmEl=document.getElementById("cqmChart");
+  const showZ=document.getElementById("cqmZToggle")?.checked ?? true;
   if(cqmRenderedModel===model && cqmEl && cqmEl.data){
     Plotly.Plots.resize(cqmEl);
     return;
@@ -831,25 +836,43 @@ function renderCqm(model){
   const hoverDates=model.data.map(d=>hoverDate(d.t));
   const prices=model.data.map(d=>d.close);
   const risk=computeCqmSeries(model);
+  const zScores=risk.map(cqmZScoreFromRisk);
+  const currentZ=zScores[zScores.length-1];
+  const zBadge=document.getElementById("cqmZBadge");
+  if(zBadge) zBadge.textContent="Z-score";
+  const priceHover=dates.map((_,i)=>[hoverDates[i],risk[i],zScores[i]]);
+  const zHover=dates.map((_,i)=>[hoverDates[i],risk[i],prices[i]]);
   const traces=[
     {
       x:dates,
       y:prices,
       mode:"lines",
       name:"BTC price",
-      line:{color:"rgba(210,214,222,.55)",width:1.4},
+      line:{color:"rgba(255,255,255,.88)",width:1.6},
       yaxis:"y",
-      customdata:hoverDates,
-      hovertemplate:"%{customdata}<br>BTC price: %{y:$,.0f}<extra></extra>",
+      customdata:priceHover,
+      hovertemplate:"%{customdata[0]}<br>BTC price: %{y:$,.0f}<br>CQM Risk: %{customdata[1]:.1f}%<br>CQM Z-score: %{customdata[2]:+.2f}<extra></extra>",
       showlegend:false
     },
-    ...riskSegmentTraces(dates,risk)
+    ...riskSegmentTraces(dates,risk),
+    {
+      x:dates,
+      y:zScores,
+      mode:"lines",
+      name:"Z-score",
+      line:{color:"rgba(224,242,254,.35)",width:1.5},
+      yaxis:"y3",
+      visible:showZ,
+      customdata:zHover,
+      hovertemplate:"%{customdata[0]}<br>CQM Z-score: %{y:+.2f}<br>CQM Risk: %{customdata[1]:.1f}%<br>BTC price: %{customdata[2]:$,.0f}<extra></extra>",
+      showlegend:false
+    }
   ];
   const layout={
     paper_bgcolor:"#162033",
     plot_bgcolor:"#162033",
     font:{color:"#dbeafe"},
-    margin:{l:70,r:60,t:20,b:45},
+    margin:{l:70,r:86,t:20,b:45},
     hovermode:"closest",
     xaxis:{
       gridcolor:"rgba(34,90,140,.35)",
@@ -868,6 +891,8 @@ function renderCqm(model){
     yaxis2:{
       overlaying:"y",
       side:"right",
+      anchor:"free",
+      position:1,
       range:[0,100],
       tickvals:[0,25,50,75,100],
       ticktext:["0%","25%","50%","75%","100%"],
@@ -875,18 +900,36 @@ function renderCqm(model){
       gridcolor:"rgba(16,77,102,.22)",
       zeroline:false
     },
+    yaxis3:{
+      overlaying:"y",
+      side:"right",
+      anchor:"free",
+      position:1,
+      range:[-3,3],
+      tickvals:[-3,-2,-1.5,0,1.5,2,3],
+      ticktext:["-3","-2","-1.5","0","+1.5","+2","+3"],
+      showticklabels:false,
+      ticks:"",
+      tickfont:{color:"rgba(224,242,254,.0)"},
+      gridcolor:"rgba(0,0,0,0)",
+      zeroline:false,
+      visible:showZ
+    },
     shapes:[
       {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:0,y1:25,fillcolor:"rgba(15,94,72,.32)",line:{width:0},layer:"below"},
       {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:25,y1:50,fillcolor:"rgba(43,113,63,.30)",line:{width:0},layer:"below"},
       {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:50,y1:75,fillcolor:"rgba(117,92,40,.28)",line:{width:0},layer:"below"},
       {type:"rect",xref:"paper",x0:0,x1:1,yref:"y2",y0:75,y1:100,fillcolor:"rgba(137,44,58,.34)",line:{width:0},layer:"below"},
-      {type:"line",xref:"paper",x0:0,x1:1,yref:"y2",y0:50,y1:50,line:{color:"rgba(180,220,220,.9)",width:1,dash:"dash"},layer:"above"}
+      {type:"line",xref:"paper",x0:0,x1:1,yref:"y2",y0:50,y1:50,line:{color:"rgba(180,220,220,.9)",width:1,dash:"dash"},layer:"above"},
+      ...(showZ ? [
+        {type:"line",xref:"paper",x0:0,x1:1,yref:"y3",y0:1.5,y1:1.5,line:{color:"rgba(103,232,165,.55)",width:1,dash:"dash"},layer:"above"},
+        {type:"line",xref:"paper",x0:0,x1:1,yref:"y3",y0:-1.5,y1:-1.5,line:{color:"rgba(255,107,107,.55)",width:1,dash:"dash"},layer:"above"}
+      ] : [])
     ],
     showlegend:false
   };
   Plotly.newPlot("cqmChart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{ cqmRenderedModel=model; });
 }
-
 
 function embeddedIsmPmiFallback(){
   // Offline fallback used only when FRED/proxy sources are blocked by CORS,
@@ -1411,7 +1454,90 @@ function setClassSign(id, value){
     if(value<0) el.classList.add("neg");
   }
 }
+const ACTIVE_Z_THRESHOLD = 1.5;
+const STRATEGY_CANDIDATES = [
+  {threshold:1.5, label:"+1.5 to +3 / -1.5 to -3"},
+  {threshold:2.0, label:"+2 to +3 / -2 to -3"}
+];
+function thresholdLabel(threshold){
+  const t = Number(threshold).toFixed(1).replace(/\.0$/, "");
+  return `+${t} to +3 / -${t} to -3`;
+}
+function eqmZScoreAtIndex(model, idx){
+  if(!model || !model.data || !model.bands) return NaN;
+  const price=model.data[idx]?.close;
+  const b=model.bands;
+  const low=b.lowRail?.[idx];
+  const mid=b["0.5"]?.[idx];
+  const high=b.highRail?.[idx];
+  if(!isFinite(price) || price<=0 || !isFinite(low) || low<=0 || !isFinite(mid) || mid<=0 || !isFinite(high) || high<=0 || !(low<mid) || !(mid<high)) return NaN;
+  const lp=Math.log(price), ll=Math.log(low), lm=Math.log(mid), lh=Math.log(high);
+  // Reversed EQM valuation z-score:
+  // 0.1% lower tail = +3 buy extreme, EQM 50% = 0, 99.9% upper tail = -3 sell extreme.
+  if(lp<=lm){
+    return clamp(3*(lm-lp)/(lm-ll || 1e-12),0,3);
+  }
+  return clamp(-3*(lp-lm)/(lh-lm || 1e-12),-3,0);
+}
+function currentEqmZScore(){
+  if(!modelState) return NaN;
+  return eqmZScoreAtIndex(modelState, modelState.data.length-1);
+}
+function zScoreText(v){
+  if(!isFinite(v)) return "—";
+  const sign=v>0?"+":"";
+  return sign + v.toFixed(2);
+}
+function dcaTradeSignalFromZ(score, threshold=ACTIVE_Z_THRESHOLD){
+  if(!isFinite(score)) return 0;
+  const t=clamp(Number(threshold)||ACTIVE_Z_THRESHOLD,0.1,2.99);
+  const span=Math.max(1e-9,3-t);
+  if(score>=t) return clamp((score-t)/span,0,1);
+  if(score<=-t) return -clamp(((-score)-t)/span,0,1);
+  return 0;
+}
+function tradeSignalText(signal){
+  if(!isFinite(signal) || Math.abs(signal)<1e-9) return "No trade";
+  if(signal>0) return `Buy ${(100*signal).toFixed(2)}% of base`;
+  return `Sell ${(100*Math.abs(signal)).toFixed(2)}% of base`;
+}
+function backtestScoreZone(score, threshold=ACTIVE_Z_THRESHOLD){
+  if(!isFinite(score)) return {id:"unknown", color:"rgba(80,90,105,.16)"};
+  const t=clamp(Number(threshold)||ACTIVE_Z_THRESHOLD,0.1,2.99);
+  if(score>=t) return {id:"buy", color:"rgba(15,94,72,.34)"};
+  if(score>=0) return {id:"positive", color:"rgba(43,113,63,.25)"};
+  if(score>-t) return {id:"negative", color:"rgba(117,92,40,.22)"};
+  return {id:"sell", color:"rgba(137,44,58,.36)"};
+}
+function backtestZoneShapes(rows, model, threshold=ACTIVE_Z_THRESHOLD){
+  const shapes=[];
+  if(!rows || !rows.length || !model) return shapes;
+  let active=null, startDate=null, lastMs=null, lastColor=null;
+  function pushShape(x0,x1,color){
+    if(!x0 || !x1 || !color) return;
+    shapes.push({type:"rect",xref:"x",x0,x1,yref:"paper",y0:0,y1:1,fillcolor:color,line:{width:0},layer:"below"});
+  }
+  for(const row of rows){
+    const zone=backtestScoreZone(eqmZScoreAtIndex(model,row.idx), threshold);
+    if(active===null){
+      active=zone.id;
+      startDate=row.date;
+      lastColor=zone.color;
+    }else if(zone.id!==active){
+      pushShape(startDate,row.date,lastColor);
+      active=zone.id;
+      startDate=row.date;
+      lastColor=zone.color;
+    }
+    lastMs=row.ms;
+  }
+  const endDate=lastMs ? isoDayUTC(new Date(lastMs+ONE_DAY)) : rows[rows.length-1].date;
+  pushShape(startDate,endDate,lastColor);
+  return shapes;
+}
 function dcaAllocationFromRisk(risk){ return clamp(1 - 2*((Number(risk)||0)/100),0,1); }
+function dcaSellAllocationFromRisk(risk){ return clamp(2*((Number(risk)||0)/100) - 1,0,1); }
+function signedRiskAllocationFromRisk(risk){ return clamp(1 - 2*((Number(risk)||0)/100),-1,1); }
 function lastClosedIndex(model){
   if(!model || !model.data || !model.data.length) return -1;
   for(let i=model.data.length-1;i>=0;i--){
@@ -1485,154 +1611,383 @@ function setDefaultBacktestInputs(model){
   const rows=backtestClosedRows(model);
   if(!rows.length) return;
   const startEl=document.getElementById("backtestStartInput");
-  const endEl=document.getElementById("backtestEndInput");
   const cashEl=document.getElementById("backtestCashInput");
-  let startPos=closestBacktestRowIndex(rows,startEl?.value||"");
-  let endPos=closestBacktestRowIndex(rows,endEl?.value||"");
-  if(startPos<0 || endPos<0){
-    endPos=rows.length-1;
-    startPos=Math.max(0,endPos-364);
+  const dcaEl=document.getElementById("backtestDcaDaysInput");
+  const minDate=rows[0].date, maxDate=rows[rows.length-1].date;
+  if(startEl){
+    startEl.min=minDate;
+    startEl.max=maxDate;
+    const defaultStartDate="2022-01-01";
+    let startPos=closestBacktestRowIndex(rows,startEl.value||defaultStartDate);
+    if(startPos<0) startPos=closestBacktestRowIndex(rows,defaultStartDate);
+    if(startPos<0) startPos=Math.max(0,rows.length-365);
+    startEl.value=rows[startPos].date;
   }
-  if(startPos>endPos) startPos=endPos;
-  setBacktestControlRange(rows,startPos,endPos);
-  if(startPos===Math.max(0,endPos-364)) setActiveBacktestQuickRange("365");
   if(cashEl && (!cashEl.value || +cashEl.value<=0)) cashEl.value="10000";
+  if(dcaEl && (!dcaEl.value || +dcaEl.value<=0)) dcaEl.value="30";
 }
 function syncBacktestDateControls(sourceId){
   const rows=backtestClosedRows(modelState);
   if(!rows.length) return;
   const startEl=document.getElementById("backtestStartInput");
-  const endEl=document.getElementById("backtestEndInput");
   const startValue=normalizeBacktestDateInput(startEl);
-  const endValue=normalizeBacktestDateInput(endEl);
-  if((startEl && startValue.length<10) || (endEl && endValue.length<10)) return;
+  if(startEl){
+    startEl.min=rows[0].date;
+    startEl.max=rows[rows.length-1].date;
+  }
+  if(!startValue || startValue.length<10) return;
   let startPos=closestBacktestRowIndex(rows,startValue||"");
-  let endPos=closestBacktestRowIndex(rows,endValue||"");
   if(startPos<0) startPos=0;
-  if(endPos<0) endPos=rows.length-1;
   startPos=clamp(startPos,0,rows.length-1);
-  endPos=clamp(endPos,0,rows.length-1);
-  if(sourceId==="backtestStartInput" && startPos>endPos) endPos=startPos;
-  if(sourceId==="backtestEndInput" && endPos<startPos) startPos=endPos;
-  if(startPos>endPos) startPos=endPos;
-  setBacktestControlRange(rows,startPos,endPos);
+  if(startEl) startEl.value=rows[startPos].date;
 }
 function applyBacktestQuickRange(range){
+  // Quick ranges were removed; this is kept as a harmless no-op for older cached DOM events.
   const rows=backtestClosedRows(modelState);
   if(!rows.length) return;
-  const endPos=rows.length-1;
-  let startPos=0;
-  if(range!=="all"){
-    const days=Math.max(1,Number(range)||365);
-    startPos=Math.max(0,endPos-days+1);
-  }
-  setBacktestControlRange(rows,startPos,endPos);
-  setActiveBacktestQuickRange(range);
+  const startEl=document.getElementById("backtestStartInput");
+  if(startEl && !startEl.value) startEl.value=rows[Math.max(0,rows.length-365)].date;
   runDcaBacktest();
 }
 function clearBacktestResults(message="Fetch BTC data first."){
-  for(const id of ["btDays","btBuyDays","btStartingCash","btDeployed","btDeployPct","btRemainingCash","btBtc","btAvgBuy","btBtcValue","btLatestPrice","btPnl","btReturn","btAvgAlloc","btAvgRisk","btLumpValue","btLumpReturn","btVsLump","btVsLumpPct","btCloseRange","btDateRange"]){
+  for(const id of ["btDays","btBuyDays","btStartingCash","btBtc","btAvgBuy","btBtcValue","btLatestPrice","btPnl","btReturn","btAvgAlloc","btAvgRisk","btLumpValue","btLumpReturn","btVsLump","btVsLumpPct","btCloseRange","btDateRange"]){
     setText(id,"—");
   }
   for(const id of ["btPnl","btReturn","btLumpReturn","btVsLump","btVsLumpPct"]){ setClassSign(id, NaN); }
   setText("backtestStatus",message);
+  setText("backtestStrategyDecision","");
 }
-function runDcaBacktest(){
-  const model=modelState;
-  if(!model){ clearBacktestResults("Fetch BTC data first."); return; }
-  const startEl=document.getElementById("backtestStartInput");
-  const endEl=document.getElementById("backtestEndInput");
-  const startStr=normalizeBacktestDateInput(startEl);
-  const endStr=normalizeBacktestDateInput(endEl);
-  const startingCash=+(document.getElementById("backtestCashInput")?.value || 0);
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(startStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endStr)){
-    clearBacktestResults("Choose a valid start and end date.");
-    return;
-  }
-  if(!isFinite(startingCash) || startingCash<=0){
-    clearBacktestResults("Enter a positive total cash amount.");
-    return;
-  }
-  const startMs=Date.parse(startStr+"T00:00:00Z");
-  const endMs=Date.parse(endStr+"T00:00:00Z");
-  if(!isFinite(startMs) || !isFinite(endMs) || endMs<startMs){
-    clearBacktestResults("End date must be on or after the start date.");
-    return;
-  }
-  const rows=backtestClosedRows(model).filter(row=>row.ms>=startMs && row.ms<=endMs);
-  if(!rows.length){
-    clearBacktestResults("No BTC daily candles found inside that date range.");
-    return;
-  }
+function simulateZScoreStrategy(model, rows, startingCash, threshold, useZoneExitLump=false){
+  // Z-score gates the action; EQM Risk signal allocation sizes the DCA trade.
+  // Buy only when EQM Z >= threshold, using max(0, 1 - 2*EQM Risk) of the base.
+  // Sell only when EQM Z <= -threshold, using max(0, 2*EQM Risk - 1) of the base.
+  const base=startingCash/Math.max(1,rows.length);
+  let cash=startingCash;
+  let btc=0;
+  let netDeployed=0;
+  let grossBought=0;
+  let grossSold=0;
+  let btcBoughtGross=0;
+  let buyDays=0;
+  let sellDays=0;
+  let noTradeDays=0;
+  let riskSum=0;
+  let buyAllocSum=0;
+  let sellAllocSum=0;
+  let signedAllocSum=0;
+  let riskCount=0;
+  let prevScore=NaN;
+  for(let k=0;k<rows.length;k++){
+    const row=rows[k];
+    const score=eqmZScoreAtIndex(model,row.idx);
+    const risk=eqmRiskAtIndex(model,row.idx);
+    const buyAlloc=dcaAllocationFromRisk(risk);
+    const sellAlloc=dcaSellAllocationFromRisk(risk);
+    let tradeHappened=false;
 
+    const exitedBuyZone=useZoneExitLump && isFinite(prevScore) && prevScore>=threshold && isFinite(score) && score<threshold;
+    const exitedSellZone=useZoneExitLump && isFinite(prevScore) && prevScore<=-threshold && isFinite(score) && score>-threshold;
+
+    if(exitedBuyZone && cash>0.005){
+      const buyUsd=cash;
+      const btcBought=buyUsd/row.price;
+      cash=0;
+      btc+=btcBought;
+      netDeployed+=buyUsd;
+      grossBought+=buyUsd;
+      btcBoughtGross+=btcBought;
+      buyDays++;
+      tradeHappened=true;
+    }else if(exitedSellZone && btc>1e-12){
+      const sellUsd=btc*row.price;
+      cash+=sellUsd;
+      btc=0;
+      netDeployed-=sellUsd;
+      grossSold+=sellUsd;
+      sellDays++;
+      tradeHappened=true;
+    }else if(score>=threshold && buyAlloc>0){
+      const buyUsd=clamp(base*buyAlloc,0,cash);
+      const btcBought=buyUsd/row.price;
+      cash-=buyUsd;
+      btc+=btcBought;
+      netDeployed+=buyUsd;
+      grossBought+=buyUsd;
+      btcBoughtGross+=btcBought;
+      if(buyUsd>0.005){ buyDays++; tradeHappened=true; }
+    }else if(score<=-threshold && sellAlloc>0){
+      const maxSellUsd=Math.max(0,btc*row.price);
+      const sellUsd=clamp(base*sellAlloc,0,maxSellUsd);
+      const btcSold=sellUsd/row.price;
+      cash+=sellUsd;
+      btc-=btcSold;
+      netDeployed-=sellUsd;
+      grossSold+=sellUsd;
+      if(sellUsd>0.005){ sellDays++; tradeHappened=true; }
+    }
+    if(!tradeHappened) noTradeDays++;
+    if(isFinite(risk)){
+      riskSum+=risk;
+      buyAllocSum+=buyAlloc;
+      sellAllocSum+=sellAlloc;
+      signedAllocSum+=signedRiskAllocationFromRisk(risk);
+      riskCount++;
+    }
+    prevScore=score;
+  }
+  const latest=model.data[model.data.length-1];
+  const latestPrice=latest?.close || rows[rows.length-1]?.price || NaN;
+  const portfolioValue=cash + btc*latestPrice;
+  const pnl=portfolioValue-startingCash;
+  const retPct=100*pnl/startingCash;
+  return {
+    kind:"z",
+    threshold,
+    useZoneExitLump,
+    label:thresholdLabel(threshold),
+    cash,
+    btc,
+    netDeployed,
+    grossBought,
+    grossSold,
+    btcBoughtGross,
+    buyDays,
+    sellDays,
+    noTradeDays,
+    avgRisk:riskCount?riskSum/riskCount:NaN,
+    avgSignal:riskCount?100*buyAllocSum/riskCount:NaN,
+    avgSellSignal:riskCount?100*sellAllocSum/riskCount:NaN,
+    avgSignedSignal:riskCount?100*signedAllocSum/riskCount:NaN,
+    portfolioValue,
+    pnl,
+    retPct,
+    latestPrice
+  };
+}
+function simulateEqmRiskAllocationStrategy(model, rows, startingCash){
+  // Reference strategy from the attached index: allocation = max(0, 1 - 2*EQM Risk).
+  // This is buy-only and is kept as a reference against the Z-score gated strategy.
   let cash=startingCash;
   let btc=0;
   let deployed=0;
+  let grossBought=0;
+  let btcBoughtGross=0;
   let buyDays=0;
+  let noTradeDays=0;
   let riskSum=0;
   let allocSum=0;
-  let eligibleAllocSum=0;
-  let eligibleAllocDays=0;
-  let maxAlloc=0;
-  let minAlloc=Infinity;
-  const dates=[], portfolioSeries=[], btcValueSeries=[], cashSeries=[], deployedSeries=[], priceSeries=[], dailyBuySeries=[], dailyAudit=[];
-  const perDateAfterBuy=new Map();
-
+  let riskCount=0;
+  const base=startingCash/Math.max(1,rows.length);
   for(let k=0;k<rows.length;k++){
     const row=rows[k];
     const risk=eqmRiskAtIndex(model,row.idx);
     const allocation=dcaAllocationFromRisk(risk);
-    const remainingDays=Math.max(1, rows.length-k);
-
-    // Historical EQM DCA backtest — path dependent and date specific:
-    // 1) Read the EQM risk for this exact historical date.
-    // 2) Convert it to that date's allocation signal: max(0, 1 - 2*risk).
-    // 3) Recalculate the total deployable target for this day from the original cash.
-    // 4) DCA only the still-unfilled target over the remaining selected days.
-    // If the target rises, future buys increase to catch up. If the target falls,
-    // future buys shrink or pause. BTC already bought is never sold.
-    const cashBefore=cash;
-    const totalDcaDays=Math.max(1, rows.length);
-    const targetDeployableToday=clamp(startingCash*allocation,0,startingCash);
-    const remainingTarget=targetDeployableToday-deployed;
-    const dailyTarget=remainingTarget/remainingDays;
-    const deploy=clamp(dailyTarget,0,cashBefore);
+    const deploy=clamp(base*allocation,0,cash);
     const btcBought=deploy/row.price;
-
     cash-=deploy;
     deployed+=deploy;
+    grossBought+=deploy;
     btc+=btcBought;
-    if(deploy>0.005) buyDays++;
-    riskSum+=isFinite(risk)?risk:0;
+    btcBoughtGross+=btcBought;
+    if(deploy>0.005) buyDays++; else noTradeDays++;
+    if(isFinite(risk)){ riskSum+=risk; riskCount++; }
     allocSum+=allocation;
-    if(isFinite(risk) && risk < 50 && allocation > 0){
-      eligibleAllocSum+=allocation;
-      eligibleAllocDays++;
-    }
-    maxAlloc=Math.max(maxAlloc,allocation);
-    minAlloc=Math.min(minAlloc,allocation);
+  }
+  const latest=model.data[model.data.length-1];
+  const latestPrice=latest?.close || rows[rows.length-1]?.price || NaN;
+  const portfolioValue=cash + btc*latestPrice;
+  const pnl=portfolioValue-startingCash;
+  const retPct=100*pnl/startingCash;
+  return {kind:"eqm",threshold:null,label:"EQM risk signal allocation",cash,btc,netDeployed:deployed,grossBought,grossSold:0,btcBoughtGross,buyDays,sellDays:0,noTradeDays,avgRisk:riskCount?riskSum/riskCount:NaN,avgSignal:rows.length?100*allocSum/rows.length:NaN,portfolioValue,pnl,retPct,latestPrice};
+}
+function chooseBestZScoreStrategy(model, rows, startingCash, useZoneExitLump=false){
+  const zResults=STRATEGY_CANDIDATES.map(c=>simulateZScoreStrategy(model,rows,startingCash,c.threshold,useZoneExitLump));
+  zResults.sort((a,b)=>{
+    const av=isFinite(a.portfolioValue)?a.portfolioValue:-Infinity;
+    const bv=isFinite(b.portfolioValue)?b.portfolioValue:-Infinity;
+    if(bv!==av) return bv-av;
+    return a.threshold-b.threshold;
+  });
+  const eqmReference=simulateEqmRiskAllocationStrategy(model,rows,startingCash);
+  return {best:zResults[0], others:zResults.slice(1), results:zResults, eqmReference};
+}
 
-    dates.push(row.date);
-    portfolioSeries.push(cash + btc*row.price);
-    btcValueSeries.push(btc*row.price);
-    cashSeries.push(cash);
-    deployedSeries.push(deployed);
-    priceSeries.push(row.price);
-    dailyBuySeries.push(deploy);
-    dailyAudit.push([risk,100*allocation,cashBefore,cash,remainingDays,totalDcaDays,targetDeployableToday,remainingTarget,dailyTarget]);
-    perDateAfterBuy.set(row.date,{portfolio:cash + btc*row.price, deployed, cash, dailyBuy:deploy, price:row.price});
+function runDcaBacktest(){
+  const model=modelState;
+  if(!model){ clearBacktestResults("Fetch BTC data first."); return; }
+  const allRows=backtestClosedRows(model);
+  if(!allRows.length){ clearBacktestResults("No BTC daily candles found."); return; }
+
+  const startEl=document.getElementById("backtestStartInput");
+  const startStr=normalizeBacktestDateInput(startEl);
+  const startingCash=+(document.getElementById("backtestCashInput")?.value || 0);
+  const dcaDaysRaw=+(document.getElementById("backtestDcaDaysInput")?.value || 30);
+  const dcaDays=Math.max(1,Math.round(isFinite(dcaDaysRaw)?dcaDaysRaw:30));
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(startStr)){
+    clearBacktestResults("Choose a valid starting date.");
+    return;
+  }
+  if(!isFinite(startingCash) || startingCash<=0){
+    clearBacktestResults("Enter a positive starting capital amount.");
+    return;
+  }
+  if(!isFinite(dcaDays) || dcaDays<=0){
+    clearBacktestResults("Enter a positive DCA timeframe.");
+    return;
   }
 
-  const latest=model.data[model.data.length-1];
-  const latestPrice=latest?.close || rows[rows.length-1].price;
+  const startMs=Date.parse(startStr+"T00:00:00Z");
+  if(!isFinite(startMs)){
+    clearBacktestResults("Choose a valid starting date.");
+    return;
+  }
+  const rows=allRows.filter(row=>row.ms>=startMs);
+  if(!rows.length){
+    clearBacktestResults("No BTC daily candles found after that starting date.");
+    return;
+  }
+
+  const selectedThreshold=ACTIVE_Z_THRESHOLD;
+  let cash=startingCash;
+  let btc=0;
+  let netDeployed=0;
+  let grossBought=0;
+  let grossSold=0;
+  let btcBoughtGross=0;
+  let buyDays=0;
+  let sellDays=0;
+  let noTradeDays=0;
+  let riskSum=0;
+  let buyAllocSum=0;
+  let sellAllocSum=0;
+  let riskCount=0;
+  const perDateAfterTrade=new Map();
+
+  // Each z-score zone creates its own tranche.
+  // DCA works toward that tranche's EQM-risk allocation target.
+  // On zone exit, only the unfilled remainder of that tranche is lumped.
+  let buyCycleActive=false;
+  let buyCycleStartCash=0;
+  let buyCycleBoughtUsd=0;
+  let buyCycleDays=0;
+  let buyCycleLastTarget=0;
+
+  let sellCycleActive=false;
+  let sellCycleStartBtc=0;
+  let sellCycleSoldBtc=0;
+  let sellCycleDays=0;
+  let sellCycleLastTargetBtc=0;
+
+  function executeBuy(usdAmount, price){
+    const buyUsd=clamp(usdAmount,0,cash);
+    if(!isFinite(buyUsd) || buyUsd<=0.005 || !isFinite(price) || price<=0) return 0;
+    const btcBought=buyUsd/price;
+    cash-=buyUsd;
+    btc+=btcBought;
+    netDeployed+=buyUsd;
+    grossBought+=buyUsd;
+    btcBoughtGross+=btcBought;
+    return buyUsd;
+  }
+  function executeSellBtc(btcAmount, price){
+    const btcSold=clamp(btcAmount,0,btc);
+    if(!isFinite(btcSold) || btcSold<=1e-12 || !isFinite(price) || price<=0) return 0;
+    const sellUsd=btcSold*price;
+    cash+=sellUsd;
+    btc-=btcSold;
+    netDeployed-=sellUsd;
+    grossSold+=sellUsd;
+    return sellUsd;
+  }
+
+  for(let k=0;k<rows.length;k++){
+    const row=rows[k];
+    const score=eqmZScoreAtIndex(model,row.idx);
+    const risk=eqmRiskAtIndex(model,row.idx);
+    const buyAlloc=dcaAllocationFromRisk(risk);
+    const sellAlloc=dcaSellAllocationFromRisk(risk);
+    const inBuyZone=isFinite(score) && score>=selectedThreshold;
+    const inSellZone=isFinite(score) && score<=-selectedThreshold;
+    let trade=0;
+
+    if(buyCycleActive && !inBuyZone){
+      // Do not let a brief one-day buy signal turn into a giant lump-sum purchase.
+      // DCA has to get its selected timeframe first; only then can an exit fill the leftover target.
+      if(buyCycleDays>=dcaDays){
+        const remainingTarget=Math.max(0,buyCycleLastTarget-buyCycleBoughtUsd);
+        const lumpBuy=executeBuy(remainingTarget,row.price);
+        buyCycleBoughtUsd+=lumpBuy;
+        trade+=lumpBuy;
+      }
+      buyCycleActive=false;
+    }
+    if(sellCycleActive && !inSellZone){
+      // Same sell-side rule: no full exit liquidation from a very short sell signal.
+      if(sellCycleDays>=dcaDays){
+        const remainingTargetBtc=Math.max(0,sellCycleLastTargetBtc-sellCycleSoldBtc);
+        const lumpSell=executeSellBtc(remainingTargetBtc,row.price);
+        sellCycleSoldBtc+=row.price>0 ? lumpSell/row.price : 0;
+        trade-=lumpSell;
+      }
+      sellCycleActive=false;
+    }
+
+    if(inBuyZone){
+      if(!buyCycleActive){
+        buyCycleActive=true;
+        buyCycleStartCash=cash;
+        buyCycleBoughtUsd=0;
+        buyCycleDays=0;
+        buyCycleLastTarget=0;
+      }
+      const targetDeployable=clamp(buyCycleStartCash*buyAlloc,0,buyCycleStartCash);
+      buyCycleLastTarget=Math.max(buyCycleBoughtUsd,targetDeployable);
+      const remainingTarget=Math.max(0,buyCycleLastTarget-buyCycleBoughtUsd);
+      const dailyBuy=executeBuy(Math.min(remainingTarget, targetDeployable/Math.max(1,dcaDays)),row.price);
+      buyCycleBoughtUsd+=dailyBuy;
+      buyCycleDays++;
+      trade+=dailyBuy;
+    }else if(inSellZone){
+      if(!sellCycleActive){
+        sellCycleActive=true;
+        sellCycleStartBtc=btc;
+        sellCycleSoldBtc=0;
+        sellCycleDays=0;
+        sellCycleLastTargetBtc=0;
+      }
+      const targetSellBtc=clamp(sellCycleStartBtc*sellAlloc,0,sellCycleStartBtc);
+      sellCycleLastTargetBtc=Math.max(sellCycleSoldBtc,targetSellBtc);
+      const remainingTargetBtc=Math.max(0,sellCycleLastTargetBtc-sellCycleSoldBtc);
+      const dailySellBtc=Math.min(remainingTargetBtc, targetSellBtc/Math.max(1,dcaDays));
+      const dailySellUsd=executeSellBtc(dailySellBtc,row.price);
+      sellCycleSoldBtc+=row.price>0 ? dailySellUsd/row.price : 0;
+      sellCycleDays++;
+      trade-=dailySellUsd;
+    }
+
+    if(trade>0.005) buyDays++;
+    else if(trade<-0.005) sellDays++;
+    else noTradeDays++;
+
+    if(isFinite(risk)){
+      riskSum+=risk;
+      buyAllocSum+=buyAlloc;
+      sellAllocSum+=sellAlloc;
+      riskCount++;
+    }
+
+    perDateAfterTrade.set(row.date,{portfolio:cash + btc*row.price, deployed:netDeployed, cash, dailyTrade:trade, price:row.price, score, risk, buyAlloc, sellAlloc});
+  }
+
+  const latestPrice=rows[rows.length-1].price;
   const btcValue=btc*latestPrice;
   const portfolioValue=btcValue+cash;
   const pnl=portfolioValue-startingCash;
   const retPct=100*pnl/startingCash;
-  const avgBuy=btc>0 ? deployed/btc : NaN;
-  const avgRisk=riskSum/rows.length;
-  const avgAlloc=eligibleAllocDays ? 100*eligibleAllocSum/eligibleAllocDays : NaN;
-  if(!isFinite(minAlloc)) minAlloc=0;
+  const avgBuy=btcBoughtGross>0 ? grossBought/btcBoughtGross : NaN;
+  const avgRisk=riskCount ? riskSum/riskCount : NaN;
+  const avgBuyAlloc=riskCount ? 100*buyAllocSum/riskCount : NaN;
+  const avgSellAlloc=riskCount ? 100*sellAllocSum/riskCount : NaN;
   const firstClose=rows[0].price;
   const lastClose=rows[rows.length-1].price;
   const lumpBtc=startingCash/firstClose;
@@ -1643,10 +1998,10 @@ function runDcaBacktest(){
   const vsLumpPct=100*vsLump/lumpValue;
 
   setText("btDays",rows.length.toLocaleString());
-  setText("btBuyDays","");
+  setText("btBuyDays",`Buy ${buyDays.toLocaleString()} / Sell ${sellDays.toLocaleString()} / No trade ${noTradeDays.toLocaleString()}`);
   setText("btStartingCash",usdExact(startingCash));
-  setText("btDeployed",usdExact(deployed));
-  setText("btDeployPct",pctExact(100*deployed/startingCash)+" of cash");
+  setText("btDeployed",usdExact(netDeployed));
+  setText("btDeployPct",`Bought ${usdExact(grossBought)} / Sold ${usdExact(grossSold)}`);
   setText("btRemainingCash",usdExact(cash));
   setText("btBtc",btcExact(btc));
   setText("btAvgBuy",isFinite(avgBuy)?`Avg buy ${usdExact(avgBuy)}`:"No BTC bought");
@@ -1656,7 +2011,7 @@ function runDcaBacktest(){
   setText("btReturn",`${retPct>=0?"+":""}${pctExact(retPct)}`);
   setClassSign("btPnl",pnl);
   setClassSign("btReturn",retPct);
-  setText("btAvgAlloc",isFinite(avgAlloc)?pctExact(avgAlloc):"—");
+  setText("btAvgAlloc",isFinite(avgBuyAlloc)?pctExact(avgBuyAlloc):"—");
   setText("btAvgRisk","");
   setText("btLumpValue",usdExact(lumpValue));
   setText("btLumpReturn",`${lumpRet>=0?"+":""}${pctExact(lumpRet)}`);
@@ -1665,43 +2020,34 @@ function runDcaBacktest(){
   setText("btVsLumpPct",`${vsLumpPct>=0?"+":""}${pctExact(vsLumpPct)}`);
   setClassSign("btVsLump",vsLump);
   setClassSign("btVsLumpPct",vsLumpPct);
-  setText("btCloseRange",`${usd(firstClose)} → ${usd(lastClose)}`);
-  setText("btDateRange",`${rows[0].date} to ${rows[rows.length-1].date}`);
+  setText("btCloseRange",usdExact(cash));
+  setText("btDateRange","Includes DCA sells");
   setText("backtestStatus","");
+  setText("backtestStrategyDecision","");
 
-  const allRows=backtestClosedRows(model);
-  const fixedChartStartMs=Date.UTC(2018,0,1);
-  let chartRows=allRows.filter(row=>row.ms>=fixedChartStartMs);
-  if(!chartRows.length) chartRows=allRows;
-  const chartDates=[], portfolioPlot=[], deployedPlot=[], cashPlot=[], dailyBuyPlot=[], btcClosePlot=[];
+  const chartStartMs=Date.UTC(2018,0,1);
+  const chartRows=allRows.filter(row=>row.ms>=chartStartMs);
+  const chartDates=[], portfolioPlot=[], deployedPlot=[], cashPlot=[], dailyTradePlot=[], dailyTradeColors=[], btcClosePlot=[];
   for(const row of chartRows){
     chartDates.push(row.date);
     btcClosePlot.push(row.price);
-    const during=perDateAfterBuy.get(row.date);
-    if(during){
-      portfolioPlot.push(during.portfolio);
-      deployedPlot.push(during.deployed);
-      cashPlot.push(during.cash);
-      dailyBuyPlot.push(during.dailyBuy);
-    }else if(row.ms > endMs){
-      portfolioPlot.push(cash + btc*row.price);
-      deployedPlot.push(deployed);
-      cashPlot.push(cash);
-      dailyBuyPlot.push(null);
-    }else{
-      portfolioPlot.push(null);
-      deployedPlot.push(null);
-      cashPlot.push(null);
-      dailyBuyPlot.push(null);
-    }
+    const during=perDateAfterTrade.get(row.date);
+    portfolioPlot.push(during?.portfolio ?? null);
+    deployedPlot.push(during?.deployed ?? null);
+    cashPlot.push(during?.cash ?? null);
+    dailyTradePlot.push(during?.dailyTrade ?? null);
+    dailyTradeColors.push((during?.dailyTrade ?? 0)<0 ? "rgba(255,107,107,.44)" : "rgba(255,184,107,.36)");
   }
 
+  const customHover=chartDates.map((d,i)=>[
+    portfolioPlot[i],
+    cashPlot[i],
+    btcClosePlot[i]
+  ]);
+
   const traces=[
-    {x:chartDates,y:portfolioPlot,type:"scatter",mode:"lines",name:"Portfolio value",line:{color:"#67e8a5",width:2.6},connectgaps:false,hovertemplate:"Portfolio value: %{y:$,.2f}<extra></extra>"},
-    {x:chartDates,y:deployedPlot,type:"scatter",mode:"lines",name:"Total deployed",line:{color:"#2f81f7",width:2},connectgaps:false,hovertemplate:"Total deployed: %{y:$,.2f}<extra></extra>"},
-    {x:chartDates,y:cashPlot,type:"scatter",mode:"lines",name:"Remaining cash",line:{color:"#c7d5e8",width:1.8},connectgaps:false,hovertemplate:"Remaining cash: %{y:$,.2f}<extra></extra>"},
-    {x:chartDates,y:dailyBuyPlot,type:"bar",name:"Daily buy",marker:{color:"rgba(255,184,107,.36)"},hoverinfo:"skip",yaxis:"y"},
-    {x:chartDates,y:btcClosePlot,type:"scatter",mode:"lines",name:"BTC close",line:{color:"rgba(255,255,255,.65)",width:1.4},hovertemplate:"BTC close: %{y:$,.0f}<extra></extra>",yaxis:"y2"}
+    {x:chartDates,y:portfolioPlot,type:"scatter",mode:"lines",name:"Portfolio value",line:{color:"#67e8a5",width:2.6},connectgaps:false,customdata:customHover,hovertemplate:"Portfolio value: %{customdata[0]:$,.2f}<br>Cash reserve: %{customdata[1]:$,.2f}<br>BTC price: %{customdata[2]:$,.0f}<extra></extra>"},
+    {x:chartDates,y:btcClosePlot,type:"scatter",mode:"lines",name:"BTC close",line:{color:"rgba(255,255,255,.65)",width:1.4},hoverinfo:"skip",yaxis:"y2"}
   ];
   const layout={
     paper_bgcolor:"#162033",
@@ -1710,14 +2056,19 @@ function runDcaBacktest(){
     margin:{l:70,r:90,t:20,b:48},
     hovermode:"x unified",
     barmode:"overlay",
-    xaxis:{range:["2018-01-01", chartRows.length ? chartRows[chartRows.length-1].date : rows[rows.length-1].date],gridcolor:"rgba(34,90,140,.35)",tickfont:{color:"#b7d4f5"},rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}},
+    xaxis:{range:["2018-01-01", chartRows[chartRows.length-1]?.date || rows[rows.length-1].date],gridcolor:"rgba(34,90,140,.35)",tickfont:{color:"#b7d4f5"},rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}},
     yaxis:{title:"USD",tickprefix:"$",tickformat:"~s",gridcolor:"rgba(34,90,140,.30)",tickfont:{color:"#9bd1ff"},zeroline:false},
     yaxis2:{type:"log",overlaying:"y",side:"right",tickprefix:"$",tickformat:"~s",gridcolor:"rgba(0,0,0,0)",tickfont:{color:"#e8edf5"},zeroline:false},
+    shapes:backtestZoneShapes(chartRows,model,selectedThreshold),
     legend:{orientation:"h",x:0,y:1.1,bgcolor:"rgba(0,0,0,0)",font:{color:"#fff",size:11}},
-    showlegend:true
+    showlegend:true,
+    uirevision:"dca-backtest-fixed-view"
   };
-  const key=JSON.stringify([startStr,endStr,startingCash,model.data.length,latestPrice,"fixed-2018-chart-simple-hover"]);
-  Plotly.newPlot("backtestChart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{ backtestRenderedKey=key; });
+  const key=JSON.stringify([startStr,startingCash,dcaDays,model.data.length,latestPrice,selectedThreshold,"z-gated-risk-allocation-v13-clean-chart-metrics"]);
+  const backtestEl=document.getElementById("backtestChart");
+  const config={responsive:true,displaylogo:false};
+  const plotPromise=(backtestEl && backtestEl.data) ? Plotly.react(backtestEl,traces,layout,config) : Plotly.newPlot("backtestChart",traces,layout,config);
+  plotPromise.then(()=>{ backtestRenderedKey=key; });
 }
 
 function setActiveTab(which){
@@ -1845,16 +2196,28 @@ function render(model){
     showlegend:false,
     legendrank:0
   });
+  const currentZForLegend=eqmZScoreAtIndex(model,n);
+  const btcHoverData=dates.map((_,i)=>[hoverDates[i],eqmZScoreAtIndex(model,i)]);
   traces.push({
     x:dates,
     y:price,
     mode:"lines",
     name:"BTC price",
     line:{color:"#ffffff",width:3.25},
-    customdata:hoverDates,
-    hovertemplate:"%{customdata}<br>BTC price: %{y:$,.0f}<extra></extra>",
+    customdata:btcHoverData,
+    hovertemplate:"%{customdata[0]}<br>BTC price: %{y:$,.0f}<br>z-score: %{customdata[1]:+.2f}<extra></extra>",
     showlegend:true,
     legendrank:0
+  });
+  traces.push({
+    x:[dates[n]],
+    y:[price[n]],
+    mode:"markers",
+    name:`z-score  ${zScoreText(currentZForLegend)}`,
+    marker:{color:"#000000",size:8,symbol:"diamond",line:{color:"#ffffff",width:1.1}},
+    hoverinfo:"skip",
+    showlegend:true,
+    legendrank:1
   });
 
   const layout={
@@ -1872,7 +2235,7 @@ function render(model){
     scheduleIsmPrewarm(model);
     if(document.getElementById("cqmPane")?.classList.contains("active")) renderCqm(model);
     if(document.getElementById("ismPane")?.classList.contains("active")) renderIsm(model).catch(console.warn);
-    if(document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+    scheduleDcaBacktest(0);
   });
   setDefaultBacktestInputs(model);
   updatePanels();
@@ -1882,13 +2245,19 @@ function updatePanels(){
   const n=m.data.length-1, price=m.data[n].close, b=m.bands;
   const levels=[b["0.01"][n],b["0.1"][n],b["0.2"][n],b["0.3"][n],b["0.4"][n],b["0.5"][n],b["0.6"][n],b["0.7"][n],b["0.8"][n],b["0.9"][n],b["0.99"][n]];
   let risk=currentEqmRisk();
+  const zScore=currentEqmZScore();
   document.getElementById("mPrice").textContent=usd(price);
   document.getElementById("mEq").textContent=usd(b["0.5"][n]);
   document.getElementById("mLowRail").textContent=usd(b.lowRail[n]);
   document.getElementById("mHighRail").textContent=usd(b.highRail[n]);
   document.getElementById("mRisk").textContent=pct(risk);
+  const cqmRisk=computeCqmSeries(m)[n];
+  const cqmZ=cqmZScoreFromRisk(cqmRisk);
+  document.getElementById("mCqmRisk").textContent=pct(cqmRisk);
+  document.getElementById("mZScore").textContent=zScoreText(zScore);
+  document.getElementById("mCqmZScore").textContent=zScoreText(cqmZ);
   document.getElementById("mBand").textContent=bandForRisk(risk);
-  document.getElementById("bandList").innerHTML=bandDefs.map(def=>`<div class="bandRow"><span class="bandName"><i class="swatch" style="background:${def[3]}"></i><span>${def[2]}</span></span><b>${usd(b[def[0]][n])}-${usd(b[def[1]][n])}</b></div>`).join("");
+  document.getElementById("bandList").innerHTML=`<div class="bandRow"><span class="bandName"><span>Current EQM Z-score</span></span><b>${zScoreText(zScore)}</b></div>` + bandDefs.map(def=>`<div class="bandRow"><span class="bandName"><i class="swatch" style="background:${def[3]}"></i><span>${def[2]}</span></span><b>${usd(b[def[0]][n])}-${usd(b[def[1]][n])}</b></div>`).join("");
   updateDca();
 }
 function currentEqmRisk(){
@@ -1912,25 +2281,31 @@ function updateDca(){
   const days=Math.max(1,+document.getElementById("dcaDaysInput").value||1);
   const allocOut=document.getElementById("riskAllocationOut");
   const deployOut=document.getElementById("deployableOut");
-  let allocation=1, deployable=cash, dca=cash/days, btc=NaN;
+  let allocation=0, deployable=0, daily=0, btc=NaN;
 
   if(modelState){
     const n=modelState.data.length-1;
     const p=modelState.data[n].close;
     const risk=currentEqmRisk();
-    allocation=clamp(1 - 2*(risk/100),0,1);
+    allocation=dcaAllocationFromRisk(risk);
     deployable=cash*allocation;
-    dca=deployable/days;
-    btc=dca/p;
+    daily=deployable/days;
+    btc=daily/p;
   }
 
-  allocOut.textContent=modelState ? `${(allocation*100).toFixed(2)}% of cash` : "Fetch data first";
+  allocOut.textContent=modelState ? `${(100*allocation).toFixed(2)}%` : "Fetch data first";
   deployOut.textContent=modelState ? usdExact(deployable) : "Fetch data first";
-  document.getElementById("dailyDca").textContent=modelState ? usdExact(dca)+" / day" : usdExact(dca)+" / day";
-  document.getElementById("btcDay").textContent=isFinite(btc)?btc.toFixed(8)+" BTC":"—";
+  document.getElementById("dailyDca").textContent=modelState ? usdExact(daily) + " / day" : usdExact(daily) + " / day";
+  document.getElementById("btcDay").textContent=isFinite(btc) && allocation>1e-9 ? btc.toFixed(8)+" BTC" : "—";
 }
 for(const id of ["cashReserveInput","dcaDaysInput"]) document.addEventListener("input",e=>{if(e.target.id===id) updateDca();});
 
+document.addEventListener("change",e=>{
+  if(e.target && e.target.id==="cqmZToggle"){
+    cqmRenderedModel=null;
+    if(modelState) renderCqm(modelState);
+  }
+});
 
 function setSideCollapsed(collapsed){
   document.body.classList.toggle("sideCollapsed", collapsed);
@@ -1946,12 +2321,23 @@ function setSideCollapsed(collapsed){
 document.getElementById("sideToggleBtn")?.addEventListener("click",()=>setSideCollapsed(true));
 document.getElementById("sideShowBtn")?.addEventListener("click",()=>setSideCollapsed(false));
 
+
+let backtestInputTimer=null;
+function scheduleDcaBacktest(delay=0){
+  if(!document.getElementById("backtestPane")?.classList.contains("active")) return;
+  if(backtestInputTimer) clearTimeout(backtestInputTimer);
+  backtestInputTimer=setTimeout(()=>{
+    backtestInputTimer=null;
+    requestAnimationFrame(()=>runDcaBacktest());
+  }, delay);
+}
+
 document.getElementById("eqmTabBtn").addEventListener("click",()=>setActiveTab("eqm"));
 document.getElementById("backtestTabBtn").addEventListener("click",()=>setActiveTab("backtest"));
 document.getElementById("cqmTabBtn").addEventListener("click",()=>setActiveTab("cqm"));
 document.getElementById("ismTabBtn").addEventListener("click",()=>{setActiveTab("ism");});
 document.getElementById("ratesTabBtn").addEventListener("click",()=>{setActiveTab("rates"); renderMacroInfo().catch(console.warn);});
-for(const id of ["backtestStartInput","backtestEndInput"]){
+for(const id of ["backtestStartInput"]){
   document.addEventListener("focusin",e=>{
     if(e.target.id===id){
       setTimeout(()=>{ try{ e.target.select(); }catch(_){} },0);
@@ -1959,36 +2345,30 @@ for(const id of ["backtestStartInput","backtestEndInput"]){
   });
   document.addEventListener("input",e=>{
     if(e.target.id===id){
-      clearActiveBacktestQuickRange();
       const formatted=normalizeBacktestDateInput(e.target);
       try{ e.target.setSelectionRange(formatted.length, formatted.length); }catch(_){}
       if(formatted.length===10 && document.getElementById("backtestPane")?.classList.contains("active")){
         syncBacktestDateControls(id);
-        runDcaBacktest();
+        scheduleDcaBacktest(0);
       }
     }
   });
   document.addEventListener("change",e=>{
     if(e.target.id===id){
       syncBacktestDateControls(id);
-      if(document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+      scheduleDcaBacktest(0);
     }
   });
   document.addEventListener("keydown",e=>{
     if(e.target.id===id && e.key==="Enter"){
       syncBacktestDateControls(id);
-      if(document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+      scheduleDcaBacktest(0);
     }
   });
 }
 document.addEventListener("input",e=>{
-  if(["backtestCashInput"].includes(e.target.id) && document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+  if(["backtestCashInput","backtestDcaDaysInput"].includes(e.target.id)) scheduleDcaBacktest(0);
 });
-document.addEventListener("click",e=>{
-  const btn=e.target.closest("[data-backtest-range]");
-  if(btn) applyBacktestQuickRange(btn.dataset.backtestRange);
-});
-
 document.getElementById("legendToggle").addEventListener("change",e=>{
   const chart=document.getElementById("chart");
   if(chart && chart.data) Plotly.relayout(chart, {"showlegend": e.target.checked});
