@@ -269,7 +269,6 @@ body.sideCollapsed .tabbar{padding-left:8px}
           <label>Total cash available, USD</label>
           <input id="backtestCashInput" type="number" value="10000" min="0" step="100"/>
           <div class="small" style="margin-top:8px;color:#b9c7d6">DCA is $0 when EQM Risk is at or above 50%.</div>
-          <button id="runBacktestBtn" type="button">Run DCA Backtest</button>
           <div id="backtestStatus" class="small" style="margin-top:8px">Fetch BTC data first.</div>
         </div>
         <div class="backtestResults">
@@ -1952,7 +1951,6 @@ document.getElementById("backtestTabBtn").addEventListener("click",()=>setActive
 document.getElementById("cqmTabBtn").addEventListener("click",()=>setActiveTab("cqm"));
 document.getElementById("ismTabBtn").addEventListener("click",()=>{setActiveTab("ism");});
 document.getElementById("ratesTabBtn").addEventListener("click",()=>{setActiveTab("rates"); renderMacroInfo().catch(console.warn);});
-document.getElementById("runBacktestBtn")?.addEventListener("click",()=>runDcaBacktest());
 for(const id of ["backtestStartInput","backtestEndInput"]){
   document.addEventListener("focusin",e=>{
     if(e.target.id===id){
