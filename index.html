@@ -78,6 +78,38 @@ body.sideCollapsed .tabbar{padding-left:8px}
 .ismMetric.latest .v{color:#ffb86b}
 .ismMetric .d{font-size:11px;color:#9fb0c1;margin-top:2px}
 
+
+
+.backtestWrap{height:100%;padding:12px;background:#162033;overflow:auto}
+.backtestHead{padding:4px 10px 8px}
+.backtestHead h2{font-size:21px;margin:0 0 6px;color:#fff}
+.backtestHead .desc{font-size:13px;color:#c7d5e8;font-style:italic;line-height:1.45;max-width:1100px}
+.backtestGrid{display:grid;grid-template-columns:minmax(230px,310px) 1fr;gap:12px;align-items:start;margin:4px 10px 12px}
+.backtestPanel,.backtestResults{border:1px solid #344050;background:rgba(0,0,0,.18);border-radius:9px;padding:11px}
+.backtestPanel button{margin-top:10px;padding:10px}
+.backtestQuickRanges{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.backtestQuickRanges button{width:auto;margin:0;padding:7px 9px;border:1px solid #344050;background:#0c1118;color:#dbeafe;font-size:12px;font-weight:800}
+.backtestQuickRanges button:hover{background:#162235}
+.backtestQuickRanges button.active{background:#2f81f7;color:#fff;border-color:#6da7ff;box-shadow:0 0 0 1px rgba(109,167,255,.35) inset}
+.backtestDateMeta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.backtestDateMeta label{margin:0;color:#b9c7d6}
+.backtestDateMeta span{font-size:11px;color:#8ea0b3;white-space:nowrap}
+.backtestDates{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.backtestDateField label{margin-top:0}
+.backtestPanel input[type="text"],.backtestPanel input[type="date"]{font-size:14px;padding:10px;color-scheme:dark}
+.backtestResults{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:8px}
+.backtestMetric{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;min-width:0}
+.backtestMetric .k{font-size:11px;color:#b9c7d6;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.backtestMetric .v{font-size:18px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.backtestMetric .d{font-size:10px;color:#8ea0b3;margin-top:2px}
+.backtestMetric .v.pos,.backtestMetric .d.pos{color:#67e8a5}
+.backtestMetric .v.neg,.backtestMetric .d.neg{color:#ff6b6b}
+.backtestPlotBox{height:calc(100% - 255px);min-height:360px;margin:0 10px 10px;border:1px solid #344050;border-radius:9px;background:#162033;overflow:hidden}
+#backtestChart{width:100%;height:100%}
+.tabbar{overflow-x:auto;white-space:nowrap}
+@media(max-width:1100px){.backtestGrid{grid-template-columns:1fr}.backtestResults{grid-template-columns:repeat(2,minmax(130px,1fr))}.backtestPlotBox{height:430px}}
+@media(max-width:650px){.backtestResults{grid-template-columns:1fr}.backtestMetric .v{font-size:16px}.backtestPlotBox{height:380px;margin-left:0;margin-right:0}.backtestGrid{margin-left:0;margin-right:0}.backtestHead{padding-left:0;padding-right:0}.backtestDates{grid-template-columns:1fr}}
+
 .eqmLegendControl{position:absolute;left:12px;top:12px;z-index:5;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.55);border:1px solid #344050;border-radius:8px;padding:6px 9px;color:#fff;font-size:12px;font-weight:800}
 .eqmLegendControl input{width:auto;margin:0}
 
@@ -130,6 +162,7 @@ body.sideCollapsed .tabbar{padding-left:8px}
     <button id="cqmTabBtn" class="tabbtn" type="button">CQM Risk</button>
     <button id="ismTabBtn" class="tabbtn" type="button">ISM PMI</button>
     <button id="ratesTabBtn" class="tabbtn" type="button">Rates</button>
+    <button id="backtestTabBtn" class="tabbtn" type="button">DCA Backtest</button>
   </div>
   <div id="eqmPane" class="tabpane active">
     <label class="eqmLegendControl">
@@ -137,11 +170,12 @@ body.sideCollapsed .tabbar{padding-left:8px}
     </label>
     <div id="chart"></div>
   </div>
+
   <div id="cqmPane" class="tabpane">
     <div class="cqmWrap">
       <div class="cqmHead">
         <h2>CQM Risk</h2>
-        <div class="desc">CQM Risk maps log(price / QR 50% fair value) through the full-sample empirical residual distribution, with cycle-aware γ and upper-percentile knots.</div>
+        <div class="desc">CQM Risk is valuation risk, not DCA allocation. Low risk = cheaper / more buyable; high risk = expensive / less buyable.</div>
         <div class="cqmBadges">
           <span class="cqmBadge buy">0–25% Buy zone</span>
           <span class="cqmBadge acc">25–50% Accumulate</span>
@@ -202,6 +236,60 @@ body.sideCollapsed .tabbar{padding-left:8px}
       </div>
     </div>
   </div>
+  <div id="backtestPane" class="tabpane">
+    <div class="backtestWrap">
+      <div class="backtestHead">
+        <h2>EQM DCA Backtest</h2>
+      </div>
+      <div class="backtestGrid">
+        <div class="backtestPanel">
+          <label>Quick range</label>
+          <div class="backtestQuickRanges" aria-label="Quick date ranges">
+            <button type="button" data-backtest-range="1">1D</button>
+            <button type="button" data-backtest-range="7">1W</button>
+            <button type="button" data-backtest-range="30">1M</button>
+            <button type="button" data-backtest-range="180">6M</button>
+            <button type="button" data-backtest-range="365">1Y</button>
+            <button type="button" data-backtest-range="730">2Y</button>
+            <button type="button" data-backtest-range="1460">4Y</button>
+            <button type="button" data-backtest-range="all">Full</button>
+          </div>
+
+          <div class="backtestDates">
+            <div class="backtestDateField">
+              <div class="backtestDateMeta"><label for="backtestStartInput">Start date</label></div>
+              <input id="backtestStartInput" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="YYYY-MM-DD"/>
+            </div>
+            <div class="backtestDateField">
+              <div class="backtestDateMeta"><label for="backtestEndInput">End date</label></div>
+              <input id="backtestEndInput" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="YYYY-MM-DD"/>
+            </div>
+          </div>
+
+          <label>Total cash available, USD</label>
+          <input id="backtestCashInput" type="number" value="10000" min="0" step="100"/>
+          <div class="small" style="margin-top:8px;color:#b9c7d6">DCA is $0 when EQM Risk is at or above 50%.</div>
+          <button id="runBacktestBtn" type="button">Run DCA Backtest</button>
+          <div id="backtestStatus" class="small" style="margin-top:8px">Fetch BTC data first.</div>
+        </div>
+        <div class="backtestResults">
+          <div class="backtestMetric"><div class="k">Backtest days</div><div id="btDays" class="v">—</div><div id="btBuyDays" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Total cash available</div><div id="btStartingCash" class="v">—</div><div class="d"></div></div>
+          <div class="backtestMetric"><div class="k">Total deployed</div><div id="btDeployed" class="v">—</div><div id="btDeployPct" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Remaining cash</div><div id="btRemainingCash" class="v">—</div><div class="d"></div></div>
+          <div class="backtestMetric"><div class="k">BTC accumulated</div><div id="btBtc" class="v">—</div><div id="btAvgBuy" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Current portfolio value</div><div id="btBtcValue" class="v">—</div><div id="btLatestPrice" class="d">BTC+Cash</div></div>
+          <div class="backtestMetric"><div class="k">P/L</div><div id="btPnl" class="v">—</div><div id="btReturn" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Avg risk allocation</div><div id="btAvgAlloc" class="v">—</div><div id="btAvgRisk" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Lump sum value</div><div id="btLumpValue" class="v">—</div><div id="btLumpReturn" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">Portfolio vs lump sum</div><div id="btVsLump" class="v">—</div><div id="btVsLumpPct" class="d">—</div></div>
+          <div class="backtestMetric"><div class="k">First / last close</div><div id="btCloseRange" class="v">—</div><div id="btDateRange" class="d">—</div></div>
+        </div>
+      </div>
+      <div class="backtestPlotBox"><div id="backtestChart"></div></div>
+    </div>
+  </div>
+
 </main>
 </div>
 
@@ -233,6 +321,7 @@ let ismRenderedModel = null;
 let ismCache = null;
 let ismLiveFetchStarted = false;
 let ismLiveLoaded = false;
+let backtestRenderedKey = null;
 function setProgress(p,msg){
   const bar=document.getElementById("progressBar");
   const txt=document.getElementById("progressText");
@@ -1310,19 +1399,322 @@ async function renderMacroInfo(){
   });
 }
 
+
+function pctExact(v){ return isFinite(v)?v.toFixed(2)+"%":"—"; }
+function btcExact(v){ return isFinite(v)?v.toFixed(8)+" BTC":"—"; }
+function setText(id, value){ const el=document.getElementById(id); if(el) el.textContent=value; }
+function setClassSign(id, value){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.classList.remove("pos","neg");
+  if(isFinite(value)){
+    if(value>0) el.classList.add("pos");
+    if(value<0) el.classList.add("neg");
+  }
+}
+function dcaAllocationFromRisk(risk){ return clamp(1 - 2*((Number(risk)||0)/100),0,1); }
+function lastClosedIndex(model){
+  if(!model || !model.data || !model.data.length) return -1;
+  for(let i=model.data.length-1;i>=0;i--){
+    if(!model.data[i].openCandle) return i;
+  }
+  return model.data.length-1;
+}
+function backtestClosedRows(model){
+  const rows=[];
+  if(!model || !model.data) return rows;
+  for(let i=0;i<model.data.length;i++){
+    const d=model.data[i];
+    if(!d || !isFinite(d.close) || d.close<=0) continue;
+    const ms=Date.UTC(d.t.getUTCFullYear(),d.t.getUTCMonth(),d.t.getUTCDate());
+    rows.push({idx:i, ms, date:isoDayUTC(d.t), price:d.close});
+  }
+  return rows;
+}
+function formatBacktestDateText(value){
+  const digits=String(value||"").replace(/\D/g,"").slice(0,8);
+  if(digits.length<=4) return digits;
+  if(digits.length<=6) return digits.slice(0,4)+"-"+digits.slice(4);
+  return digits.slice(0,4)+"-"+digits.slice(4,6)+"-"+digits.slice(6);
+}
+function normalizeBacktestDateInput(el){
+  if(!el) return "";
+  const formatted=formatBacktestDateText(el.value);
+  el.value=formatted;
+  return formatted;
+}
+function setActiveBacktestQuickRange(range){
+  document.querySelectorAll("[data-backtest-range]").forEach(btn=>{
+    btn.classList.toggle("active", String(btn.dataset.backtestRange)===String(range));
+  });
+}
+function clearActiveBacktestQuickRange(){
+  document.querySelectorAll("[data-backtest-range]").forEach(btn=>btn.classList.remove("active"));
+}
+function closestBacktestRowIndex(rows, dateStr){
+  if(!rows.length || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr||"")) return -1;
+  const target=Date.parse(dateStr+"T00:00:00Z");
+  if(!isFinite(target)) return -1;
+  let lo=0, hi=rows.length-1;
+  while(lo<hi){
+    const mid=(lo+hi)>>1;
+    if(rows[mid].ms<target) lo=mid+1;
+    else hi=mid;
+  }
+  if(lo>0 && Math.abs(rows[lo-1].ms-target) <= Math.abs(rows[lo].ms-target)) return lo-1;
+  return lo;
+}
+function setBacktestControlRange(rows,startPos,endPos){
+  if(!rows.length) return;
+  startPos=clamp(Math.round(startPos),0,rows.length-1);
+  endPos=clamp(Math.round(endPos),0,rows.length-1);
+  if(startPos>endPos){
+    const tmp=startPos;
+    startPos=endPos;
+    endPos=tmp;
+  }
+  const startEl=document.getElementById("backtestStartInput");
+  const endEl=document.getElementById("backtestEndInput");
+  const minDate=rows[0].date, maxDate=rows[rows.length-1].date;
+  for(const el of [startEl,endEl]){
+    if(el){ el.min=minDate; el.max=maxDate; }
+  }
+  if(startEl) startEl.value=rows[startPos].date;
+  if(endEl) endEl.value=rows[endPos].date;
+}
+function setDefaultBacktestInputs(model){
+  const rows=backtestClosedRows(model);
+  if(!rows.length) return;
+  const startEl=document.getElementById("backtestStartInput");
+  const endEl=document.getElementById("backtestEndInput");
+  const cashEl=document.getElementById("backtestCashInput");
+  let startPos=closestBacktestRowIndex(rows,startEl?.value||"");
+  let endPos=closestBacktestRowIndex(rows,endEl?.value||"");
+  if(startPos<0 || endPos<0){
+    endPos=rows.length-1;
+    startPos=Math.max(0,endPos-364);
+  }
+  if(startPos>endPos) startPos=endPos;
+  setBacktestControlRange(rows,startPos,endPos);
+  if(startPos===Math.max(0,endPos-364)) setActiveBacktestQuickRange("365");
+  if(cashEl && (!cashEl.value || +cashEl.value<=0)) cashEl.value="10000";
+}
+function syncBacktestDateControls(sourceId){
+  const rows=backtestClosedRows(modelState);
+  if(!rows.length) return;
+  const startEl=document.getElementById("backtestStartInput");
+  const endEl=document.getElementById("backtestEndInput");
+  const startValue=normalizeBacktestDateInput(startEl);
+  const endValue=normalizeBacktestDateInput(endEl);
+  if((startEl && startValue.length<10) || (endEl && endValue.length<10)) return;
+  let startPos=closestBacktestRowIndex(rows,startValue||"");
+  let endPos=closestBacktestRowIndex(rows,endValue||"");
+  if(startPos<0) startPos=0;
+  if(endPos<0) endPos=rows.length-1;
+  startPos=clamp(startPos,0,rows.length-1);
+  endPos=clamp(endPos,0,rows.length-1);
+  if(sourceId==="backtestStartInput" && startPos>endPos) endPos=startPos;
+  if(sourceId==="backtestEndInput" && endPos<startPos) startPos=endPos;
+  if(startPos>endPos) startPos=endPos;
+  setBacktestControlRange(rows,startPos,endPos);
+}
+function applyBacktestQuickRange(range){
+  const rows=backtestClosedRows(modelState);
+  if(!rows.length) return;
+  const endPos=rows.length-1;
+  let startPos=0;
+  if(range!=="all"){
+    const days=Math.max(1,Number(range)||365);
+    startPos=Math.max(0,endPos-days+1);
+  }
+  setBacktestControlRange(rows,startPos,endPos);
+  setActiveBacktestQuickRange(range);
+  runDcaBacktest();
+}
+function clearBacktestResults(message="Fetch BTC data first."){
+  for(const id of ["btDays","btBuyDays","btStartingCash","btDeployed","btDeployPct","btRemainingCash","btBtc","btAvgBuy","btBtcValue","btLatestPrice","btPnl","btReturn","btAvgAlloc","btAvgRisk","btLumpValue","btLumpReturn","btVsLump","btVsLumpPct","btCloseRange","btDateRange"]){
+    setText(id,"—");
+  }
+  for(const id of ["btPnl","btReturn","btLumpReturn","btVsLump","btVsLumpPct"]){ setClassSign(id, NaN); }
+  setText("backtestStatus",message);
+}
+function runDcaBacktest(){
+  const model=modelState;
+  if(!model){ clearBacktestResults("Fetch BTC data first."); return; }
+  const startEl=document.getElementById("backtestStartInput");
+  const endEl=document.getElementById("backtestEndInput");
+  const startStr=normalizeBacktestDateInput(startEl);
+  const endStr=normalizeBacktestDateInput(endEl);
+  const startingCash=+(document.getElementById("backtestCashInput")?.value || 0);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(startStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endStr)){
+    clearBacktestResults("Choose a valid start and end date.");
+    return;
+  }
+  if(!isFinite(startingCash) || startingCash<=0){
+    clearBacktestResults("Enter a positive total cash amount.");
+    return;
+  }
+  const startMs=Date.parse(startStr+"T00:00:00Z");
+  const endMs=Date.parse(endStr+"T00:00:00Z");
+  if(!isFinite(startMs) || !isFinite(endMs) || endMs<startMs){
+    clearBacktestResults("End date must be on or after the start date.");
+    return;
+  }
+  const rows=backtestClosedRows(model).filter(row=>row.ms>=startMs && row.ms<=endMs);
+  if(!rows.length){
+    clearBacktestResults("No BTC daily candles found inside that date range.");
+    return;
+  }
+
+  let cash=startingCash;
+  let btc=0;
+  let deployed=0;
+  let buyDays=0;
+  let riskSum=0;
+  let allocSum=0;
+  let eligibleAllocSum=0;
+  let eligibleAllocDays=0;
+  let maxAlloc=0;
+  let minAlloc=Infinity;
+  const dates=[], portfolioSeries=[], btcValueSeries=[], cashSeries=[], deployedSeries=[], priceSeries=[], dailyBuySeries=[], dailyAudit=[];
+
+  for(let k=0;k<rows.length;k++){
+    const row=rows[k];
+    const risk=eqmRiskAtIndex(model,row.idx);
+    const allocation=dcaAllocationFromRisk(risk);
+    const remainingDays=Math.max(1, rows.length-k);
+
+    // Historical EQM DCA backtest — path dependent and date specific:
+    // 1) Read the EQM risk for this exact historical date.
+    // 2) Convert it to that date's allocation signal: max(0, 1 - 2*risk).
+    // 3) Recalculate the total deployable target for this day from the original cash.
+    // 4) DCA only the still-unfilled target over the remaining selected days.
+    // If the target rises, future buys increase to catch up. If the target falls,
+    // future buys shrink or pause. BTC already bought is never sold.
+    const cashBefore=cash;
+    const totalDcaDays=Math.max(1, rows.length);
+    const targetDeployableToday=clamp(startingCash*allocation,0,startingCash);
+    const remainingTarget=targetDeployableToday-deployed;
+    const dailyTarget=remainingTarget/remainingDays;
+    const deploy=clamp(dailyTarget,0,cashBefore);
+    const btcBought=deploy/row.price;
+
+    cash-=deploy;
+    deployed+=deploy;
+    btc+=btcBought;
+    if(deploy>0.005) buyDays++;
+    riskSum+=isFinite(risk)?risk:0;
+    allocSum+=allocation;
+    if(isFinite(risk) && risk < 50 && allocation > 0){
+      eligibleAllocSum+=allocation;
+      eligibleAllocDays++;
+    }
+    maxAlloc=Math.max(maxAlloc,allocation);
+    minAlloc=Math.min(minAlloc,allocation);
+
+    dates.push(row.date);
+    portfolioSeries.push(cash + btc*row.price);
+    btcValueSeries.push(btc*row.price);
+    cashSeries.push(cash);
+    deployedSeries.push(deployed);
+    priceSeries.push(row.price);
+    dailyBuySeries.push(deploy);
+    dailyAudit.push([risk,100*allocation,cashBefore,cash,remainingDays,totalDcaDays,targetDeployableToday,remainingTarget,dailyTarget]);
+  }
+
+  const latest=model.data[model.data.length-1];
+  const latestPrice=latest?.close || rows[rows.length-1].price;
+  const btcValue=btc*latestPrice;
+  const portfolioValue=btcValue+cash;
+  const pnl=portfolioValue-startingCash;
+  const retPct=100*pnl/startingCash;
+  const avgBuy=btc>0 ? deployed/btc : NaN;
+  const avgRisk=riskSum/rows.length;
+  const avgAlloc=eligibleAllocDays ? 100*eligibleAllocSum/eligibleAllocDays : NaN;
+  if(!isFinite(minAlloc)) minAlloc=0;
+  const firstClose=rows[0].price;
+  const lastClose=rows[rows.length-1].price;
+  const lumpBtc=startingCash/firstClose;
+  const lumpValue=lumpBtc*latestPrice;
+  const lumpPnl=lumpValue-startingCash;
+  const lumpRet=100*lumpPnl/startingCash;
+  const vsLump=portfolioValue-lumpValue;
+  const vsLumpPct=100*vsLump/lumpValue;
+
+  setText("btDays",rows.length.toLocaleString());
+  setText("btBuyDays","");
+  setText("btStartingCash",usdExact(startingCash));
+  setText("btDeployed",usdExact(deployed));
+  setText("btDeployPct",pctExact(100*deployed/startingCash)+" of cash");
+  setText("btRemainingCash",usdExact(cash));
+  setText("btBtc",btcExact(btc));
+  setText("btAvgBuy",isFinite(avgBuy)?`Avg buy ${usdExact(avgBuy)}`:"No BTC bought");
+  setText("btBtcValue",usdExact(portfolioValue));
+  setText("btLatestPrice","BTC+Cash");
+  setText("btPnl",`${pnl>=0?"+":""}${usdExact(pnl)}`);
+  setText("btReturn",`${retPct>=0?"+":""}${pctExact(retPct)}`);
+  setClassSign("btPnl",pnl);
+  setClassSign("btReturn",retPct);
+  setText("btAvgAlloc",isFinite(avgAlloc)?pctExact(avgAlloc):"—");
+  setText("btAvgRisk","");
+  setText("btLumpValue",usdExact(lumpValue));
+  setText("btLumpReturn",`${lumpRet>=0?"+":""}${pctExact(lumpRet)}`);
+  setClassSign("btLumpReturn",lumpRet);
+  setText("btVsLump",`${vsLump>=0?"+":""}${usdExact(vsLump)}`);
+  setText("btVsLumpPct",`${vsLumpPct>=0?"+":""}${pctExact(vsLumpPct)}`);
+  setClassSign("btVsLump",vsLump);
+  setClassSign("btVsLumpPct",vsLumpPct);
+  setText("btCloseRange",`${usd(firstClose)} → ${usd(lastClose)}`);
+  setText("btDateRange",`${rows[0].date} to ${rows[rows.length-1].date}`);
+  setText("backtestStatus","");
+
+  const traces=[
+    {x:dates,y:portfolioSeries,type:"scatter",mode:"lines",name:"Portfolio value",line:{color:"#67e8a5",width:2.6},hovertemplate:"%{x}<br>Portfolio: %{y:$,.2f}<extra></extra>"},
+    {x:dates,y:deployedSeries,type:"scatter",mode:"lines",name:"Total deployed",line:{color:"#2f81f7",width:2},hovertemplate:"%{x}<br>Deployed: %{y:$,.2f}<extra></extra>"},
+    {x:dates,y:cashSeries,type:"scatter",mode:"lines",name:"Cash remaining",line:{color:"#c7d5e8",width:1.8},hovertemplate:"%{x}<br>Cash: %{y:$,.2f}<extra></extra>"},
+    {x:dates,y:dailyBuySeries,type:"bar",name:"Daily buy",marker:{color:"rgba(255,184,107,.36)"},customdata:dailyAudit,hovertemplate:"%{x}<br>Daily buy: %{y:$,.2f}<br>EQM Risk: %{customdata[0]:.2f}%<br>Allocation signal: %{customdata[1]:.2f}%<br>That day total deployable: %{customdata[6]:$,.2f}<br>Daily target buy: %{customdata[8]:$,.2f}<br>Unfilled target before buy: %{customdata[7]:$,.2f}<br>Cash before: %{customdata[2]:$,.2f}<br>Cash after: %{customdata[3]:$,.2f}<br>Remaining days: %{customdata[4]}<extra></extra>",yaxis:"y"},
+    {x:dates,y:priceSeries,type:"scatter",mode:"lines",name:"BTC close",line:{color:"rgba(255,255,255,.65)",width:1.4},hovertemplate:"%{x}<br>BTC close: %{y:$,.0f}<extra></extra>",yaxis:"y2"}
+  ];
+  const layout={
+    paper_bgcolor:"#162033",
+    plot_bgcolor:"#162033",
+    font:{color:"#dbeafe"},
+    margin:{l:70,r:90,t:20,b:48},
+    hovermode:"x unified",
+    barmode:"overlay",
+    xaxis:{gridcolor:"rgba(34,90,140,.35)",tickfont:{color:"#b7d4f5"},rangeslider:{visible:true,bgcolor:"#204a86",bordercolor:"#6da7ff",borderwidth:1,thickness:.065}},
+    yaxis:{title:"USD",tickprefix:"$",tickformat:"~s",gridcolor:"rgba(34,90,140,.30)",tickfont:{color:"#9bd1ff"},zeroline:false},
+    yaxis2:{type:"log",overlaying:"y",side:"right",tickprefix:"$",tickformat:"~s",gridcolor:"rgba(0,0,0,0)",tickfont:{color:"#e8edf5"},zeroline:false},
+    legend:{orientation:"h",x:0,y:1.1,bgcolor:"rgba(0,0,0,0)",font:{color:"#fff",size:11}},
+    showlegend:true
+  };
+  const key=JSON.stringify([startStr,endStr,startingCash,model.data.length,latestPrice]);
+  Plotly.newPlot("backtestChart",traces,layout,{responsive:true,displaylogo:false}).then(()=>{ backtestRenderedKey=key; });
+}
+
 function setActiveTab(which){
+  const isBacktest=which==="backtest";
   const isCqm=which==="cqm";
   const isIsm=which==="ism";
   const isRates=which==="rates";
-  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isCqm && !isIsm && !isRates);
+  document.getElementById("eqmTabBtn")?.classList.toggle("active",!isBacktest && !isCqm && !isIsm && !isRates);
+  document.getElementById("backtestTabBtn")?.classList.toggle("active",isBacktest);
   document.getElementById("cqmTabBtn")?.classList.toggle("active",isCqm);
   document.getElementById("ismTabBtn")?.classList.toggle("active",isIsm);
   document.getElementById("ratesTabBtn")?.classList.toggle("active",isRates);
-  document.getElementById("eqmPane")?.classList.toggle("active",!isCqm && !isIsm && !isRates);
+  document.getElementById("eqmPane")?.classList.toggle("active",!isBacktest && !isCqm && !isIsm && !isRates);
+  document.getElementById("backtestPane")?.classList.toggle("active",isBacktest);
   document.getElementById("cqmPane")?.classList.toggle("active",isCqm);
   document.getElementById("ismPane")?.classList.toggle("active",isIsm);
   document.getElementById("ratesPane")?.classList.toggle("active",isRates);
-  if(isCqm && modelState){
+  if(isBacktest){
+    if(modelState){
+      setDefaultBacktestInputs(modelState);
+      requestAnimationFrame(()=>runDcaBacktest());
+    }else{
+      clearBacktestResults("Fetch BTC data first.");
+    }
+  }else if(isCqm && modelState){
     const cqmEl=document.getElementById("cqmChart");
     if(cqmRenderedModel===modelState && cqmEl && cqmEl.data){
       requestAnimationFrame(()=>Plotly.Plots.resize(cqmEl));
@@ -1365,6 +1757,7 @@ function render(model){
   modelState=model;
   cqmRenderedModel=null;
   ismRenderedModel=null;
+  backtestRenderedKey=null;
   const dates=model.data.map(d=>isoDayUTC(d.t)), hoverDates=model.data.map(d=>hoverDate(d.t)), price=model.data.map(d=>d.close), b=model.bands, n=price.length-1;
   const traces=[];
   function line(name,y,color,width=1,show=true,hover=true){
@@ -1451,7 +1844,9 @@ function render(model){
     scheduleIsmPrewarm(model);
     if(document.getElementById("cqmPane")?.classList.contains("active")) renderCqm(model);
     if(document.getElementById("ismPane")?.classList.contains("active")) renderIsm(model).catch(console.warn);
+    if(document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
   });
+  setDefaultBacktestInputs(model);
   updatePanels();
 }
 function updatePanels(){
@@ -1514,7 +1909,7 @@ function setSideCollapsed(collapsed){
   const btn=document.getElementById("sideToggleBtn");
   if(btn) btn.textContent="Hide menu";
   requestAnimationFrame(()=>{
-    for(const id of ["chart","cqmChart","ismChart"]){
+    for(const id of ["chart","cqmChart","ismChart","backtestChart"]){
       const el=document.getElementById(id);
       if(el && el.data) Plotly.Plots.resize(el);
     }
@@ -1524,9 +1919,48 @@ document.getElementById("sideToggleBtn")?.addEventListener("click",()=>setSideCo
 document.getElementById("sideShowBtn")?.addEventListener("click",()=>setSideCollapsed(false));
 
 document.getElementById("eqmTabBtn").addEventListener("click",()=>setActiveTab("eqm"));
+document.getElementById("backtestTabBtn").addEventListener("click",()=>setActiveTab("backtest"));
 document.getElementById("cqmTabBtn").addEventListener("click",()=>setActiveTab("cqm"));
 document.getElementById("ismTabBtn").addEventListener("click",()=>{setActiveTab("ism");});
 document.getElementById("ratesTabBtn").addEventListener("click",()=>{setActiveTab("rates"); renderMacroInfo().catch(console.warn);});
+document.getElementById("runBacktestBtn")?.addEventListener("click",()=>runDcaBacktest());
+for(const id of ["backtestStartInput","backtestEndInput"]){
+  document.addEventListener("focusin",e=>{
+    if(e.target.id===id){
+      setTimeout(()=>{ try{ e.target.select(); }catch(_){} },0);
+    }
+  });
+  document.addEventListener("input",e=>{
+    if(e.target.id===id){
+      clearActiveBacktestQuickRange();
+      const formatted=normalizeBacktestDateInput(e.target);
+      try{ e.target.setSelectionRange(formatted.length, formatted.length); }catch(_){}
+      if(formatted.length===10 && document.getElementById("backtestPane")?.classList.contains("active")){
+        syncBacktestDateControls(id);
+        runDcaBacktest();
+      }
+    }
+  });
+  document.addEventListener("change",e=>{
+    if(e.target.id===id){
+      syncBacktestDateControls(id);
+      if(document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+    }
+  });
+  document.addEventListener("keydown",e=>{
+    if(e.target.id===id && e.key==="Enter"){
+      syncBacktestDateControls(id);
+      if(document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+    }
+  });
+}
+document.addEventListener("input",e=>{
+  if(["backtestCashInput"].includes(e.target.id) && document.getElementById("backtestPane")?.classList.contains("active")) runDcaBacktest();
+});
+document.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-backtest-range]");
+  if(btn) applyBacktestQuickRange(btn.dataset.backtestRange);
+});
 
 document.getElementById("legendToggle").addEventListener("change",e=>{
   const chart=document.getElementById("chart");
@@ -1567,6 +2001,7 @@ document.getElementById("loadBtn").onclick=async()=>{
   }
 };
 updateDca();
+clearBacktestResults("Fetch BTC data first.");
 </script>
 </body>
 </html>
